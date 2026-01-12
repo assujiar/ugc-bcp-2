@@ -52,9 +52,12 @@ const allNavItems: NavItem[] = [
     href: "/crm",
     icon: Users,
     children: [
-      { label: "Leads", href: "/crm/leads" },
-      { label: "Customers", href: "/crm/customers" },
-      { label: "Prospects", href: "/crm/prospects" },
+      { label: "Lead Inbox", href: "/crm/lead-inbox" },
+      { label: "Sales Inbox", href: "/crm/sales-inbox" },
+      { label: "Pipeline", href: "/crm/pipeline" },
+      { label: "Accounts", href: "/crm/accounts" },
+      { label: "Targets", href: "/crm/targets" },
+      { label: "Activities", href: "/crm/activities" },
     ],
   },
   {
