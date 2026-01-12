@@ -20,6 +20,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  pageLabels,
+  actionLabels,
+  emptyStateMessages,
+  modalTitles,
+} from "@/lib/terminology/labels";
 
 interface ProspectingTarget {
   target_id: string;
@@ -188,17 +194,17 @@ export default function TargetsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Prospecting Targets</h1>
-          <p className="text-muted-foreground">{targets.length} targets</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.prospectingTargets.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.prospectingTargets.subtitle}</p>
         </div>
         <div className="flex gap-2">
           <button className="btn-outline h-10">
             <Upload className="h-4 w-4 mr-2" />
-            Import
+            {actionLabels.import}
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary h-10">
             <Plus className="h-4 w-4 mr-2" />
-            Add Target
+            {actionLabels.add} Target
           </button>
         </div>
       </div>
@@ -339,7 +345,7 @@ export default function TargetsPage() {
                         ) : (
                           <>
                             <ArrowRight className="h-4 w-4 mr-1" />
-                            Convert
+                            {actionLabels.convertToLeadOpportunity}
                           </>
                         )}
                       </button>
@@ -356,7 +362,7 @@ export default function TargetsPage() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Prospecting Target</DialogTitle>
+            <DialogTitle>{modalTitles.addTarget}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

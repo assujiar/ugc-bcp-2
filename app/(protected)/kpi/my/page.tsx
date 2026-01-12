@@ -17,6 +17,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { pageLabels, navLabels } from "@/lib/terminology/labels";
 
 interface KpiTarget {
   id: number;
@@ -134,10 +135,10 @@ export default function MyKpiPage() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to KPI
+          Back to {navLabels.performance}
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">My KPI</h1>
-        <p className="text-muted-foreground">Track your personal KPI progress</p>
+        <h1 className="text-2xl font-bold text-foreground">{pageLabels.myPerformance.title}</h1>
+        <p className="text-muted-foreground">{pageLabels.myPerformance.subtitle}</p>
       </div>
 
       {/* Summary Cards */}
@@ -149,7 +150,7 @@ export default function MyKpiPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{summaryStats.total}</p>
-              <p className="text-xs text-muted-foreground">Total KPIs</p>
+              <p className="text-xs text-muted-foreground">Total Metrics</p>
             </div>
           </div>
         </div>
@@ -211,7 +212,7 @@ export default function MyKpiPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">Loading KPIs...</span>
+          <span className="ml-3 text-muted-foreground">Loading metrics...</span>
         </div>
       ) : targets.length > 0 ? (
         <div className="space-y-4">
@@ -296,9 +297,9 @@ export default function MyKpiPage() {
       ) : (
         <div className="card text-center py-12">
           <Target className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-lg font-medium text-foreground mb-1">No KPI Targets Assigned</p>
+          <p className="text-lg font-medium text-foreground mb-1">No Performance Targets Assigned</p>
           <p className="text-sm text-muted-foreground">
-            Contact your manager to set KPI targets for you
+            Contact your manager to set performance targets for you
           </p>
         </div>
       )}

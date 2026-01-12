@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { pageLabels, navLabels } from "@/lib/terminology/labels";
 
 interface TeamMember {
   user_id: string;
@@ -75,7 +76,7 @@ export default function TeamKpiPage() {
 
         setStats({
           memberCount: typedTeam.length,
-          avgAchievement: 0, // No KPI data yet
+          avgAchievement: 0, // No performance data yet
           onTrack: 0,
           atRisk: 0,
         });
@@ -111,8 +112,8 @@ export default function TeamKpiPage() {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Team KPI</h1>
-          <p className="text-muted-foreground">Monitor your team&apos;s KPI performance</p>
+          <h1 className="text-2xl font-bold text-foreground">Team Performance</h1>
+          <p className="text-muted-foreground">Monitor your team performance metrics</p>
         </div>
       </div>
 
@@ -165,7 +166,7 @@ export default function TeamKpiPage() {
                 Team Member
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                KPIs
+                Metrics
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                 Achievement

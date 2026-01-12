@@ -11,6 +11,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { pageLabels, actionLabels, emptyStateMessages } from "@/lib/terminology/labels";
 
 interface Account {
   account_id: string;
@@ -108,12 +109,12 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Accounts</h1>
-          <p className="text-muted-foreground">{pagination.total} accounts</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.accounts.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.accounts.subtitle}</p>
         </div>
         <Link href="/crm/pipeline" className="btn-primary h-10">
           <Plus className="h-4 w-4 mr-2" />
-          Add Account
+          {actionLabels.add} Account
         </Link>
       </div>
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Inbox,
+  ListTodo,
   Clock,
   AlertTriangle,
   CheckCircle,
@@ -14,8 +14,15 @@ import {
   ArrowRight,
   Loader2,
   Plus,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  pageLabels,
+  actionLabels,
+  fieldLabels,
+  emptyStateMessages,
+} from "@/lib/terminology/labels";
 
 interface Activity {
   activity_id: string;
@@ -149,12 +156,12 @@ export default function SalesInboxPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Sales Inbox</h1>
-          <p className="text-muted-foreground">Your daily tasks and new handovers</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.myWorkQueue.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.myWorkQueue.subtitle}</p>
         </div>
         <Link href="/crm/pipeline" className="btn-primary h-10">
           <Plus className="h-4 w-4 mr-2" />
-          Quick Add Prospect
+          {actionLabels.quickCreate}
         </Link>
       </div>
 
@@ -166,16 +173,16 @@ export default function SalesInboxPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{overdueActivities.length}</p>
-            <p className="text-sm text-muted-foreground">Overdue Activities</p>
+            <p className="text-sm text-muted-foreground">{fieldLabels.pastDue} Activities</p>
           </div>
         </div>
         <div className="card flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Inbox className="h-6 w-6 text-primary" />
+            <Users className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{handoverLeads.length}</p>
-            <p className="text-sm text-muted-foreground">Leads to Claim</p>
+            <p className="text-sm text-muted-foreground">Sales Pool Leads</p>
           </div>
         </div>
         <div className="card flex items-center gap-4">
@@ -191,19 +198,19 @@ export default function SalesInboxPage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Overdue Activities */}
+        {/* Past Due Activities */}
         <div className="card-flush">
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <Clock className="h-5 w-5 text-warning" />
-              Overdue Activities
+              {fieldLabels.pastDue} Activities
             </h2>
           </div>
           <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
             {overdueActivities.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
-                <p>All caught up! No overdue activities.</p>
+                <p>{emptyStateMessages.myWorkQueue.description}</p>
               </div>
             ) : (
               overdueActivities.map((activity) => {
@@ -258,18 +265,18 @@ export default function SalesInboxPage() {
           </div>
         </div>
 
-        {/* Handover Pool */}
+        {/* Sales Pool */}
         <div className="card-flush">
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <Inbox className="h-5 w-5 text-primary" />
-              Available Leads (Get Lead)
+              <Users className="h-5 w-5 text-primary" />
+              Sales Pool
             </h2>
           </div>
           <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
             {handoverLeads.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                <Inbox className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <ListTodo className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                 <p>No leads available to claim</p>
               </div>
             ) : (
@@ -298,7 +305,7 @@ export default function SalesInboxPage() {
                       ) : (
                         <>
                           <ArrowRight className="h-4 w-4 mr-1" />
-                          Claim
+                          {actionLabels.claimLead}
                         </>
                       )}
                     </button>

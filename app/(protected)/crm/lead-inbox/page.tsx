@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-  Inbox,
+  ListTodo,
   Clock,
   CheckCircle,
   XCircle,
@@ -22,6 +22,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  pageLabels,
+  actionLabels,
+  fieldLabels,
+  emptyStateMessages,
+  modalTitles,
+  getLeadStatusLabel,
+} from "@/lib/terminology/labels";
 
 interface Lead {
   lead_id: string;
@@ -159,7 +167,7 @@ export default function LeadInboxPage() {
     if (!deadline) return null;
     const diff = new Date(deadline).getTime() - new Date().getTime();
     const hours = Math.round(diff / (1000 * 60 * 60));
-    if (hours < 0) return `${Math.abs(hours)}h overdue`;
+    if (hours < 0) return `${Math.abs(hours)}h ${fieldLabels.pastDue.toLowerCase()}`;
     return `${hours}h remaining`;
   };
 
@@ -188,8 +196,8 @@ export default function LeadInboxPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Lead Inbox</h1>
-          <p className="text-muted-foreground">Triage and qualify inbound leads</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.leadTriageQueue.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.leadTriageQueue.subtitle}</p>
         </div>
       </div>
 
@@ -197,7 +205,7 @@ export default function LeadInboxPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Inbox className="h-6 w-6 text-primary" />
+            <ListTodo className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{stats.new}</p>
@@ -219,7 +227,7 @@ export default function LeadInboxPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{stats.slaBreached}</p>
-            <p className="text-sm text-muted-foreground">SLA Breached</p>
+            <p className="text-sm text-muted-foreground">{fieldLabels.responseSla} {fieldLabels.pastDue}</p>
           </div>
         </div>
       </div>
@@ -246,16 +254,16 @@ export default function LeadInboxPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Company</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Contact</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Channel</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">SLA</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{fieldLabels.responseSla}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{fieldLabels.status}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{fieldLabels.actions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {filteredLeads.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                  No leads in inbox
+                  {emptyStateMessages.leadTriageQueue.title}
                 </td>
               </tr>
             ) : (
@@ -299,7 +307,7 @@ export default function LeadInboxPage() {
                       lead.triage_status === "Qualified" ? "bg-success/10 text-success" :
                       "bg-muted text-muted-foreground"
                     )}>
-                      {lead.triage_status}
+                      {getLeadStatusLabel(lead.triage_status)}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -311,7 +319,7 @@ export default function LeadInboxPage() {
                         }}
                         className="btn-ghost h-8 px-3 text-sm"
                       >
-                        Triage
+                        {actionLabels.triageLead}
                       </button>
                       {lead.triage_status === "Qualified" && (
                         <button
@@ -324,7 +332,7 @@ export default function LeadInboxPage() {
                           ) : (
                             <>
                               <ArrowRight className="h-4 w-4 mr-1" />
-                              Handover
+                              {actionLabels.sendToSalesPool}
                             </>
                           )}
                         </button>
@@ -342,7 +350,7 @@ export default function LeadInboxPage() {
       <Dialog open={showTriageModal} onOpenChange={setShowTriageModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Triage Lead</DialogTitle>
+            <DialogTitle>{modalTitles.triageLead}</DialogTitle>
           </DialogHeader>
 
           {selectedLead && (
