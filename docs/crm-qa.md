@@ -13,14 +13,14 @@ This document provides a comprehensive QA checklist for the rebuilt CRM module. 
 
 ---
 
-## 1. Lead Inbox (`/crm/lead-inbox`)
+## 1. Lead Triage Queue (`/crm/lead-inbox`)
 
 ### Display
 - [ ] Lead inbox page loads without errors
-- [ ] SLA countdown timer displays correctly for each lead
+- [ ] Response SLA countdown timer displays correctly for each lead
 - [ ] Lead statistics show correct counts (New, In Review, Qualified, Handed Over)
-- [ ] Leads are sorted by SLA deadline (most urgent first)
-- [ ] Overdue leads show red SLA indicator
+- [ ] Leads are sorted by Response SLA deadline (most urgent first)
+- [ ] Past Due leads show red Response SLA indicator
 
 ### Lead Triage
 - [ ] Clicking "Triage" opens the triage modal
@@ -31,22 +31,22 @@ This document provides a comprehensive QA checklist for the rebuilt CRM module. 
 - [ ] Triage notes are saved correctly
 
 ### Lead Handover
-- [ ] "Handover to Sales" button appears for Qualified leads
+- [ ] "Send to Sales Pool" button appears for Qualified leads
 - [ ] Clicking handover adds lead to the sales pool
-- [ ] Lead status changes to "Handed Over"
-- [ ] Lead appears in Sales Inbox handover pool
+- [ ] Lead status changes to "Sent to Sales Pool"
+- [ ] Lead appears in My Work Queue sales pool
 
 ---
 
-## 2. Sales Inbox (`/crm/sales-inbox`)
+## 2. My Work Queue (`/crm/sales-inbox`)
 
 ### Display
-- [ ] Page loads with two sections: Overdue Activities and Handover Pool
-- [ ] Overdue activities show correct count and list
-- [ ] Handover pool shows unclaimed leads
+- [ ] Page loads with two sections: Past Due Activities and Sales Pool
+- [ ] Past Due activities show correct count and list
+- [ ] Sales Pool shows unclaimed leads
 
 ### Activity Management
-- [ ] Overdue activities display entity type and subject
+- [ ] Past Due activities display entity type and subject
 - [ ] Clicking activity opens relevant entity detail
 
 ### Lead Claiming
@@ -57,7 +57,7 @@ This document provides a comprehensive QA checklist for the rebuilt CRM module. 
 
 ---
 
-## 3. Pipeline (`/crm/pipeline`)
+## 3. Sales Pipeline (`/crm/pipeline`)
 
 ### Display
 - [ ] Kanban view shows all opportunity stages
@@ -163,7 +163,7 @@ This document provides a comprehensive QA checklist for the rebuilt CRM module. 
 ## 8. API Endpoints
 
 ### Leads API
-- [ ] `GET /api/crm/leads` - Returns lead inbox with SLA ordering
+- [ ] `GET /api/crm/leads` - Returns lead inbox with Response SLA ordering
 - [ ] `POST /api/crm/leads` - Creates lead with dedupe check
 - [ ] `GET /api/crm/leads/[id]` - Returns single lead
 - [ ] `PATCH /api/crm/leads/[id]` - Updates lead

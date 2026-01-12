@@ -23,6 +23,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  pageLabels,
+  actionLabels,
+  fieldLabels,
+  emptyStateMessages,
+  modalTitles,
+  getActivityTypeLabel,
+} from "@/lib/terminology/labels";
 
 interface Activity {
   activity_id: string;
@@ -233,8 +241,8 @@ export default function ActivitiesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Activity Planner</h1>
-          <p className="text-muted-foreground">Plan and track your activities</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.activityPlanner.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.activityPlanner.subtitle}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -251,7 +259,7 @@ export default function ActivitiesPage() {
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary h-9">
             <Plus className="h-4 w-4 mr-2" />
-            Add Activity
+            {actionLabels.scheduleActivity}
           </button>
         </div>
       </div>

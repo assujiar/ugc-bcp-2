@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { pageLabels, navLabels } from "@/lib/terminology/labels";
 
 interface KpiMetric {
   metric_key: string;
@@ -169,8 +170,8 @@ export default function KpiPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">KPI Dashboard</h1>
-          <p className="text-muted-foreground">Track performance against targets</p>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.performanceOverview.title}</h1>
+          <p className="text-muted-foreground">{pageLabels.performanceOverview.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/kpi/progress" className="btn-outline">
@@ -179,7 +180,7 @@ export default function KpiPage() {
           </Link>
           <Link href="/kpi/input" className="btn-outline">
             <FileEdit className="h-4 w-4" />
-            Manual Input
+            {navLabels.performanceUpdates}
           </Link>
           <Link href="/kpi/imports" className="btn-outline">
             <Upload className="h-4 w-4" />
@@ -199,7 +200,7 @@ export default function KpiPage() {
             <Target className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="font-medium text-foreground">My KPI</p>
+            <p className="font-medium text-foreground">{navLabels.myPerformance}</p>
             <p className="text-sm text-muted-foreground">Personal progress</p>
           </div>
         </Link>
@@ -208,7 +209,7 @@ export default function KpiPage() {
             <Users className="h-6 w-6 text-secondary" />
           </div>
           <div>
-            <p className="font-medium text-foreground">Team KPI</p>
+            <p className="font-medium text-foreground">{navLabels.teamPerformance}</p>
             <p className="text-sm text-muted-foreground">Team performance</p>
           </div>
         </Link>
@@ -240,7 +241,7 @@ export default function KpiPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{summary.totalKpis}</p>
-            <p className="text-sm text-muted-foreground">Total KPIs</p>
+            <p className="text-sm text-muted-foreground">Total Metrics</p>
           </div>
         </div>
         <div className="card-compact flex items-center gap-3">

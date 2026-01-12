@@ -19,6 +19,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  pageLabels,
+  actionLabels,
+  fieldLabels,
+  modalTitles,
+  getOpportunityStageLabel,
+} from "@/lib/terminology/labels";
 
 interface Opportunity {
   opportunity_id: string;
@@ -262,7 +269,7 @@ export default function PipelinePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
+          <h1 className="text-2xl font-bold text-foreground">{pageLabels.salesPipeline.title}</h1>
           <p className="text-muted-foreground">
             {opportunities.length} opportunities &bull; {formatCurrency(totalPipelineValue)} total value
           </p>
@@ -287,7 +294,7 @@ export default function PipelinePage() {
             className="btn-primary h-9"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Quick Add
+            {actionLabels.quickCreate}
           </button>
         </div>
       </div>

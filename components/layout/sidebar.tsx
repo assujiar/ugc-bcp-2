@@ -15,9 +15,11 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { navLabels } from "@/lib/terminology/labels";
 
 interface NavItem {
-  label: string;
+  id: string;  // Used for allowedMenus filtering (keeps legacy values)
+  label: string;  // Display label (uses new terminology)
   href: string;
   icon: React.ElementType;
   children?: { label: string; href: string }[];
@@ -31,52 +33,57 @@ interface SidebarProps {
 
 const allNavItems: NavItem[] = [
   {
-    label: "Dashboard",
+    id: "Dashboard",
+    label: navLabels.dashboard,
     href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    label: "KPI",
+    id: "KPI",  // Keep legacy ID for RBAC filtering
+    label: navLabels.performance,
     href: "/kpi",
     icon: Gauge,
     children: [
-      { label: "Overview", href: "/kpi" },
-      { label: "My KPI", href: "/kpi/my" },
-      { label: "Team KPI", href: "/kpi/team" },
-      { label: "Targets", href: "/kpi/targets" },
-      { label: "Input", href: "/kpi/input" },
+      { label: navLabels.performanceOverview, href: "/kpi" },
+      { label: navLabels.myPerformance, href: "/kpi/my" },
+      { label: navLabels.teamPerformance, href: "/kpi/team" },
+      { label: navLabels.performanceTargets, href: "/kpi/targets" },
+      { label: navLabels.performanceUpdates, href: "/kpi/input" },
     ],
   },
   {
-    label: "CRM",
+    id: "CRM",
+    label: navLabels.crm,
     href: "/crm",
     icon: Users,
     children: [
-      { label: "Lead Inbox", href: "/crm/lead-inbox" },
-      { label: "Sales Inbox", href: "/crm/sales-inbox" },
-      { label: "Pipeline", href: "/crm/pipeline" },
-      { label: "Accounts", href: "/crm/accounts" },
-      { label: "Targets", href: "/crm/targets" },
-      { label: "Activities", href: "/crm/activities" },
+      { label: navLabels.leadTriageQueue, href: "/crm/lead-inbox" },
+      { label: navLabels.myWorkQueue, href: "/crm/sales-inbox" },
+      { label: navLabels.salesPipeline, href: "/crm/pipeline" },
+      { label: navLabels.accounts, href: "/crm/accounts" },
+      { label: navLabels.prospectingTargets, href: "/crm/targets" },
+      { label: navLabels.activities, href: "/crm/activities" },
     ],
   },
   {
-    label: "Ticketing",
+    id: "Ticketing",
+    label: navLabels.ticketing,
     href: "/ticketing",
     icon: Ticket,
     children: [
-      { label: "All Tickets", href: "/ticketing" },
-      { label: "Create Ticket", href: "/ticketing/create" },
+      { label: navLabels.allTickets, href: "/ticketing" },
+      { label: navLabels.createTicket, href: "/ticketing/create" },
     ],
   },
   {
-    label: "DSO",
+    id: "DSO",  // Keep legacy ID for RBAC filtering
+    label: navLabels.arDso,
     href: "/dso",
     icon: Clock,
     children: [
-      { label: "Overview", href: "/dso" },
-      { label: "Invoices", href: "/dso/invoices" },
-      { label: "Payments", href: "/dso/payments" },
+      { label: navLabels.dsoOverview, href: "/dso" },
+      { label: navLabels.invoices, href: "/dso/invoices" },
+      { label: navLabels.payments, href: "/dso/payments" },
     ],
   },
 ];
@@ -85,24 +92,24 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
 
-  // Filter nav items based on allowed menus
-  const navItems = allNavItems.filter((item) => allowedMenus.includes(item.label));
+  // Filter nav items based on allowed menus (uses id for RBAC compatibility)
+  const navItems = allNavItems.filter((item) => allowedMenus.includes(item.id));
 
   // Auto-expand active parent
   React.useEffect(() => {
     navItems.forEach((item) => {
       if (item.children) {
         const isChildActive = item.children.some((child) => pathname.startsWith(child.href));
-        if (isChildActive && !expandedItems.includes(item.label)) {
-          setExpandedItems((prev) => [...prev, item.label]);
+        if (isChildActive && !expandedItems.includes(item.id)) {
+          setExpandedItems((prev) => [...prev, item.id]);
         }
       }
     });
   }, [pathname, navItems, expandedItems]);
 
-  const toggleExpand = (label: string) => {
+  const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
-      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
+      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
     );
   };
 
@@ -154,12 +161,12 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
           <div className="nav-group-title">Main Menu</div>
           <ul className="space-y-1">
             {navItems.map((item) => (
-              <li key={item.label}>
+              <li key={item.id}>
                 {item.children ? (
                   // Expandable item
                   <div>
                     <button
-                      onClick={() => toggleExpand(item.label)}
+                      onClick={() => toggleExpand(item.id)}
                       className={cn(
                         "w-full",
                         isActive(item.href) ? "nav-item-active" : "nav-item"
@@ -167,13 +174,13 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="flex-1 text-left">{item.label}</span>
-                      {expandedItems.includes(item.label) ? (
+                      {expandedItems.includes(item.id) ? (
                         <ChevronDown className="h-4 w-4" />
                       ) : (
                         <ChevronRight className="h-4 w-4" />
                       )}
                     </button>
-                    {expandedItems.includes(item.label) && (
+                    {expandedItems.includes(item.id) && (
                       <ul className="mt-1 ml-4 space-y-1 border-l border-border pl-4">
                         {item.children.map((child) => (
                           <li key={child.href}>
