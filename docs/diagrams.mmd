@@ -1,0 +1,378 @@
+%% docs/diagrams.mmd
+%% Mermaid Diagrams - UGC Integrated Dashboard
+%% Version: 2.0
+
+%% =========================================================
+%% DIAGRAM 1: HIGH-LEVEL ARCHITECTURE
+%% =========================================================
+flowchart TB
+  subgraph Client[Client Layer]
+    Browser[Browser/Mobile]
+  end
+
+  subgraph NextJS[Next.js 16 App Router]
+    RSC[React Server Components]
+    RH[Route Handlers - BFF/Proxy]
+    CC[Client Components]
+  end
+
+  subgraph Supabase[Supabase]
+    Auth[Auth Service]
+    PG[(Postgres + RLS)]
+    Storage[Storage Buckets]
+  end
+
+  Browser --> RSC
+  Browser --> CC
+  CC --> RH
+  RSC --> PG
+  RH --> PG
+  RH --> Storage
+  RSC --> Auth
+  RH --> Auth
+
+%% =========================================================
+%% DIAGRAM 2: AUTH FLOW (NO MIDDLEWARE)
+%% =========================================================
+sequenceDiagram
+  participant U as User
+  participant B as Browser
+  participant RSC as RSC Server
+  participant RH as Route Handler
+  participant SB as Supabase Auth
+
+  U->>B: Navigate to /dashboard
+  B->>RSC: Request page
+  RSC->>SB: getSession via cookie
+  alt No Session
+    RSC->>B: Redirect to /login
+  else Valid Session
+    RSC->>RSC: getProfile role
+    RSC->>B: Render page with role-based UI
+  end
+
+  U->>B: Submit form mutation
+  B->>RH: POST /api/leads
+  RH->>SB: Verify session
+  RH->>SB: Execute with RLS
+  SB-->>RH: Result
+  RH-->>B: Response
+
+%% =========================================================
+%% DIAGRAM 3: SIDEBAR VISIBILITY BY ROLE
+%% =========================================================
+flowchart LR
+  subgraph Roles[15 Roles]
+    DIR[Director]
+    SA[super admin]
+    MM[Marketing Manager]
+    MKT[Marketing Staff x4]
+    SM[sales manager]
+    SP[salesperson]
+    SS[sales support]
+    OPS[Ops x4]
+    FIN[finance]
+  end
+
+  subgraph Menus[5 Menus]
+    DASH[Dashboard]
+    KPI[KPI]
+    CRM[CRM]
+    TICK[Ticketing]
+    DSO[DSO]
+  end
+
+  DIR --> DASH
+  DIR --> KPI
+  DIR --> CRM
+  DIR --> TICK
+  DIR --> DSO
+
+  SA --> DASH
+  SA --> KPI
+  SA --> CRM
+  SA --> TICK
+  SA --> DSO
+
+  MM --> DASH
+  MM --> KPI
+  MM --> CRM
+  MM --> TICK
+
+  MKT --> DASH
+  MKT --> KPI
+  MKT --> CRM
+  MKT --> TICK
+
+  SM --> DASH
+  SM --> KPI
+  SM --> CRM
+  SM --> TICK
+  SM --> DSO
+
+  SP --> DASH
+  SP --> KPI
+  SP --> CRM
+  SP --> TICK
+  SP --> DSO
+
+  SS --> CRM
+  SS --> TICK
+
+  OPS --> DASH
+  OPS --> TICK
+
+  FIN --> DASH
+  FIN --> KPI
+  FIN --> CRM
+  FIN --> DSO
+
+%% =========================================================
+%% DIAGRAM 4: DATA FLOW - INPUT SOURCES TO ENTITIES
+%% =========================================================
+flowchart LR
+  subgraph Sources[Input Sources]
+    UILead[CRM UI: Lead Form]
+    UILog[CRM UI: Sales Activity Log]
+    UIKPI[KPIs UI: Manual Activity/Spend Input + Import]
+    UITicket[Ticketing UI: Create/Update Ticket + Messages + Attachments]
+    UIFin[DSO UI: Invoice + Payment]
+  end
+
+  subgraph Core[Core Entities]
+    Leads[(leads)]
+    Customers[(customers)]
+    Prospects[(prospects)]
+    StageHist[(prospect_stage_history)]
+    Activities[(sales_activities)]
+    Tickets[(tickets)]
+    Messages[(ticket_messages)]
+    Attach[(ticket_attachments)]
+    SLA[(sla_events)]
+    Invoices[(invoices)]
+    Payments[(payments)]
+    MktAct[(marketing_activity_events)]
+    MktSpend[(marketing_spend)]
+    Imports[(imports)]
+    ImportRows[(import_rows)]
+    Catalog[(service_catalog)]
+  end
+
+  subgraph Reporting[Reporting Views]
+    VResp[v_ticket_first_response]
+    VRespMed[v_ticket_first_response_median_daily]
+    VRev[v_sales_revenue_daily]
+    VNew[v_sales_new_logos_daily]
+    VMktLead[v_marketing_leads_by_channel_daily]
+    VMktSpend[v_marketing_spend_daily]
+    VCPL[v_marketing_cpl_daily]
+    VOut[v_invoice_outstanding]
+    VAging[v_ar_aging]
+    VDSO[v_dso_rolling_30]
+    VMasked[v_ops_rfqs_masked]
+  end
+
+  UILead --> Leads
+  UILead -->|auto-link/dedup| Customers
+  UILead -->|auto-create| Prospects
+  UILead -->|optional toggle Need rate quote| Tickets
+
+  UILog --> Activities
+  Activities --> Prospects
+  Prospects --> StageHist
+
+  UITicket --> Tickets
+  UITicket --> Messages
+  UITicket --> Attach
+  Messages --> SLA
+
+  UIKPI --> MktAct
+  UIKPI --> MktSpend
+  UIKPI --> Imports
+  Imports --> ImportRows
+
+  UIFin --> Invoices
+  UIFin --> Payments
+
+  Catalog --> Leads
+  Catalog --> Tickets
+
+  Tickets --> VResp
+  VResp --> VRespMed
+  Tickets --> VMasked
+
+  Invoices --> VRev
+  Invoices --> VNew
+  Leads --> VMktLead
+  MktSpend --> VMktSpend
+  VMktSpend --> VCPL
+  VMktLead --> VCPL
+
+  Invoices --> VOut
+  Payments --> VOut
+  VOut --> VAging
+  VOut --> VDSO
+
+%% =========================================================
+%% DIAGRAM 5: LEAD - CUSTOMER - PROSPECT AUTO-LINK
+%% =========================================================
+flowchart TB
+  subgraph LeadCreation[Lead Creation Flow]
+    Start([User creates Lead])
+    Dedup{Dedup by NPWP/Email/Phone/Company}
+    CustExists{Customer Exists?}
+    CreateCust[Create Customer]
+    LinkCust[Link to existing Customer]
+    ProspExists{Prospect exists for Customer+Owner?}
+    CreateProsp[Create Prospect]
+    LinkProsp[Link to existing Prospect]
+    NeedRFQ{Need Rate Quote toggle ON?}
+    RFQComplete{RFQ fields complete?}
+    CreateRFQ[Create Ticket type=inquiry tariff]
+    Done([Lead Created with links])
+  end
+
+  Start --> Dedup
+  Dedup --> CustExists
+  CustExists -->|No| CreateCust --> ProspExists
+  CustExists -->|Yes| LinkCust --> ProspExists
+  ProspExists -->|No| CreateProsp --> NeedRFQ
+  ProspExists -->|Yes| LinkProsp --> NeedRFQ
+  NeedRFQ -->|Yes| RFQComplete
+  NeedRFQ -->|No| Done
+  RFQComplete -->|Yes| CreateRFQ --> Done
+  RFQComplete -->|No| Done
+
+%% =========================================================
+%% DIAGRAM 6: TICKET LIFECYCLE
+%% =========================================================
+stateDiagram-v2
+  [*] --> OPEN: Create Ticket
+
+  state InquiryTariff {
+    OPEN --> WAITING_RESPON: Ops responds
+    WAITING_RESPON --> WAITING_CUSTOMER: Need customer input
+    WAITING_CUSTOMER --> WAITING_RESPON: Customer responds
+    WAITING_RESPON --> CLOSED: Deal won
+    WAITING_RESPON --> CLOSED_LOST: Deal lost
+  }
+
+  state GeneralPickupDelivery {
+    OPEN --> IN_PROGRESS: Start work
+    IN_PROGRESS --> CLOSED: Complete
+  }
+
+  CLOSED --> [*]
+  CLOSED_LOST --> [*]
+
+%% =========================================================
+%% DIAGRAM 7: DSO / AR FLOW
+%% =========================================================
+flowchart LR
+  subgraph Finance[Finance Actions]
+    CreateInv[Create Invoice]
+    RecordPay[Record Payment]
+  end
+
+  subgraph Views[Reporting Views]
+    VIO[v_invoice_outstanding]
+    VAR[v_ar_aging]
+    VDSO2[v_dso_rolling_30]
+    VMCA[v_my_customers_ar]
+  end
+
+  subgraph Access[Role Access]
+    FIN2[finance: RW]
+    SM2[sales manager: R scoped]
+    SP2[salesperson: R scoped]
+    DIR2[Director: R all]
+  end
+
+  CreateInv --> VIO
+  RecordPay --> VIO
+  VIO --> VAR
+  VIO --> VDSO2
+  VAR --> VMCA
+
+  VIO --> FIN2
+  VIO --> DIR2
+  VMCA --> SM2
+  VMCA --> SP2
+
+%% =========================================================
+%% DIAGRAM 8: RLS ENFORCEMENT LAYERS
+%% =========================================================
+flowchart TB
+  subgraph Request[Incoming Request]
+    Client[Client Request]
+  end
+
+  subgraph Layer1[Layer 1: UI Hide]
+    Sidebar[Sidebar renders only allowed menus]
+    PageGuard[Page checks role access]
+  end
+
+  subgraph Layer2[Layer 2: Proxy Guard]
+    RouteHandler[Route Handler checks role eligibility]
+    BlockFast[Block unauthorized fast]
+  end
+
+  subgraph Layer3[Layer 3: RLS - Source of Truth]
+    Policy[RLS Policy evaluates auth.uid + role]
+    Allow[Allow]
+    Deny[Deny]
+  end
+
+  Client --> Layer1
+  Layer1 --> Layer2
+  Layer2 --> Layer3
+  Policy --> Allow
+  Policy --> Deny
+
+%% =========================================================
+%% DIAGRAM 9: KPI ENGINE
+%% =========================================================
+flowchart TB
+  subgraph Sources2[Data Sources]
+    Leads2[(leads)]
+    Invoices2[(invoices)]
+    Tickets2[(tickets)]
+    Activities2[(sales_activities)]
+    MktSpend2[(marketing_spend)]
+    MktEvents2[(marketing_activity_events)]
+    Imports2[(imports)]
+  end
+
+  subgraph CalcMethods[Calculation Methods]
+    AUTO[AUTO: Computed from internal data]
+    MANUAL[MANUAL: Single entry form]
+    IMPORTED[IMPORTED: Bulk CSV/Excel]
+  end
+
+  subgraph KPIDefs[KPI Definitions]
+    SalesKPI[Sales KPIs]
+    MktKPI[Marketing KPIs]
+  end
+
+  subgraph Output[Output]
+    Targets[(kpi_targets)]
+    Views2[Reporting Views]
+    Dashboard2[Dashboard Display]
+  end
+
+  Leads2 --> AUTO
+  Invoices2 --> AUTO
+  Tickets2 --> AUTO
+  Activities2 --> AUTO
+  MktSpend2 --> IMPORTED
+  MktEvents2 --> MANUAL
+
+  AUTO --> SalesKPI
+  AUTO --> MktKPI
+  MANUAL --> MktKPI
+  IMPORTED --> MktKPI
+
+  SalesKPI --> Views2
+  MktKPI --> Views2
+  Views2 --> Dashboard2
+  Targets --> Dashboard2

@@ -1,0 +1,243 @@
+{
+  "project": "UGC Logistics Integrated Dashboard",
+  "version": "validator.v2",
+  "last_updated": "2025-01-07",
+  "constraints": {
+    "roles_exact_match": [
+      "Director",
+      "super admin",
+      "Marketing Manager",
+      "Marcomm (marketing staff)",
+      "DGO (Marketing staff)",
+      "MACX (marketing staff)",
+      "VSDO (marketing staff)",
+      "sales manager",
+      "salesperson",
+      "sales support",
+      "EXIM Ops (operation)",
+      "domestics Ops (operation)",
+      "Import DTD Ops (operation)",
+      "traffic & warehous (operation)",
+      "finance"
+    ],
+    "roles_count": 15,
+    "top_level_menu_exact_match": [
+      "Dashboard",
+      "KPI",
+      "CRM",
+      "Ticketing",
+      "DSO"
+    ],
+    "menu_count": 5,
+    "color_palette_hex_only": [
+      "#FF4600",
+      "#082567",
+      "#DC2F02",
+      "#0F1A2D",
+      "#FFFFFF"
+    ],
+    "border_radius_range_px": {
+      "min": 14,
+      "max": 18
+    },
+    "font_primary": "Lufga",
+    "font_fallback": ["Inter", "system-ui", "sans-serif"],
+    "tech_stack_locked": {
+      "framework": "Next.js 16 App Router",
+      "language": "TypeScript",
+      "styling": "Tailwind CSS",
+      "components": "shadcn/ui + Radix UI",
+      "icons": "lucide-react",
+      "database": "Supabase Postgres",
+      "auth": "Supabase SSR",
+      "deploy": "Vercel"
+    },
+    "forbidden_patterns": [
+      "next/middleware auth gating",
+      "@supabase/auth-helpers",
+      "service role key in client",
+      "external API integration (GA4/Ads/Meta)"
+    ]
+  },
+  "rbac_sidebar_visibility": {
+    "Director": ["Dashboard", "KPI", "CRM", "Ticketing", "DSO"],
+    "super admin": ["Dashboard", "KPI", "CRM", "Ticketing", "DSO"],
+    "Marketing Manager": ["Dashboard", "KPI", "CRM", "Ticketing"],
+    "Marcomm (marketing staff)": ["Dashboard", "KPI", "CRM", "Ticketing"],
+    "DGO (Marketing staff)": ["Dashboard", "KPI", "CRM", "Ticketing"],
+    "MACX (marketing staff)": ["Dashboard", "KPI", "CRM", "Ticketing"],
+    "VSDO (marketing staff)": ["Dashboard", "KPI", "CRM", "Ticketing"],
+    "sales manager": ["Dashboard", "KPI", "CRM", "Ticketing", "DSO"],
+    "salesperson": ["Dashboard", "KPI", "CRM", "Ticketing", "DSO"],
+    "sales support": ["CRM", "Ticketing"],
+    "EXIM Ops (operation)": ["Dashboard", "Ticketing"],
+    "domestics Ops (operation)": ["Dashboard", "Ticketing"],
+    "Import DTD Ops (operation)": ["Dashboard", "Ticketing"],
+    "traffic & warehous (operation)": ["Dashboard", "Ticketing"],
+    "finance": ["Dashboard", "KPI", "CRM", "DSO"]
+  },
+  "rbac_matrix": {
+    "Dashboard": {
+      "Director": "R_ALL",
+      "super admin": "R",
+      "Marketing Manager": "R_MARKETING",
+      "Marcomm (marketing staff)": "R_OWN",
+      "DGO (Marketing staff)": "R_OWN",
+      "MACX (marketing staff)": "R_OWN",
+      "VSDO (marketing staff)": "R_OWN",
+      "sales manager": "R_TEAM",
+      "salesperson": "R_OWN",
+      "sales support": "NA",
+      "EXIM Ops (operation)": "R_SLA",
+      "domestics Ops (operation)": "R_SLA",
+      "Import DTD Ops (operation)": "R_SLA",
+      "traffic & warehous (operation)": "R_SLA",
+      "finance": "R_AR_DSO"
+    },
+    "KPI": {
+      "Director": "R",
+      "super admin": "A",
+      "Marketing Manager": "RW",
+      "Marcomm (marketing staff)": "RW_OWN",
+      "DGO (Marketing staff)": "RW_OWN",
+      "MACX (marketing staff)": "RW_OWN",
+      "VSDO (marketing staff)": "RW_OWN",
+      "sales manager": "RW",
+      "salesperson": "RW_OWN",
+      "sales support": "NA",
+      "EXIM Ops (operation)": "NA",
+      "domestics Ops (operation)": "NA",
+      "Import DTD Ops (operation)": "NA",
+      "traffic & warehous (operation)": "NA",
+      "finance": "R"
+    },
+    "CRM": {
+      "Director": "R",
+      "super admin": "A",
+      "Marketing Manager": "RW",
+      "Marcomm (marketing staff)": "RW_OWN",
+      "DGO (Marketing staff)": "RW_OWN",
+      "MACX (marketing staff)": "RW_OWN",
+      "VSDO (marketing staff)": "RW_OWN",
+      "sales manager": "RW",
+      "salesperson": "RW_OWN",
+      "sales support": "RW_ASSIST",
+      "EXIM Ops (operation)": "NA",
+      "domestics Ops (operation)": "NA",
+      "Import DTD Ops (operation)": "NA",
+      "traffic & warehous (operation)": "NA",
+      "finance": "R"
+    },
+    "Ticketing": {
+      "Director": "R",
+      "super admin": "A",
+      "Marketing Manager": "RW",
+      "Marcomm (marketing staff)": "RW",
+      "DGO (Marketing staff)": "RW",
+      "MACX (marketing staff)": "RW",
+      "VSDO (marketing staff)": "RW",
+      "sales manager": "RW",
+      "salesperson": "RW",
+      "sales support": "RW",
+      "EXIM Ops (operation)": "RW_DEPT_MASKED",
+      "domestics Ops (operation)": "RW_DEPT_MASKED",
+      "Import DTD Ops (operation)": "RW_DEPT_MASKED",
+      "traffic & warehous (operation)": "RW_DEPT_MASKED",
+      "finance": "NA"
+    },
+    "DSO": {
+      "Director": "R",
+      "super admin": "A",
+      "Marketing Manager": "NA",
+      "Marcomm (marketing staff)": "NA",
+      "DGO (Marketing staff)": "NA",
+      "MACX (marketing staff)": "NA",
+      "VSDO (marketing staff)": "NA",
+      "sales manager": "R_SCOPED",
+      "salesperson": "R_SCOPED",
+      "sales support": "NA",
+      "EXIM Ops (operation)": "NA",
+      "domestics Ops (operation)": "NA",
+      "Import DTD Ops (operation)": "NA",
+      "traffic & warehous (operation)": "NA",
+      "finance": "RW"
+    }
+  },
+  "routes": {
+    "auth": ["/login"],
+    "dashboard": ["/dashboard"],
+    "kpi": ["/kpi", "/kpi/my", "/kpi/team", "/kpi/targets", "/kpi/input", "/kpi/imports"],
+    "crm": ["/crm/leads", "/crm/customers", "/crm/prospects", "/crm/imports"],
+    "ticketing": ["/ticketing", "/ticketing/create", "/ticketing/[ticket_id]"],
+    "dso": ["/dso", "/dso/invoices", "/dso/payments", "/dso/my-customers"]
+  },
+  "api_routes": {
+    "leads": ["/api/leads"],
+    "tickets": ["/api/tickets"],
+    "kpi": ["/api/kpi"],
+    "imports": ["/api/imports"],
+    "invoices": ["/api/invoices"],
+    "auth": ["/api/auth"]
+  },
+  "ticket_types": [
+    "inquiry tariff",
+    "general request",
+    "request pickup",
+    "request delivery"
+  ],
+  "ticket_lifecycle": {
+    "inquiry tariff": ["OPEN", "WAITING RESPON", "WAITING CUSTOMER", "CLOSED", "CLOSED LOST"],
+    "general request": ["OPEN", "IN PROGRESS", "CLOSED"],
+    "request pickup": ["OPEN", "IN PROGRESS", "CLOSED"],
+    "request delivery": ["OPEN", "IN PROGRESS", "CLOSED"]
+  },
+  "kpi_calc_methods": ["AUTO", "MANUAL", "IMPORTED"],
+  "departments": {
+    "MKT": "marketing",
+    "SAL": "sales",
+    "DOM": "Domestics Ops",
+    "EXI": "EXIM Ops",
+    "DTD": "Import DTD Ops",
+    "FIN": "finance",
+    "TRF": "warehouse & traffic",
+    "DIR": "director"
+  },
+  "acceptance_criteria": {
+    "auth": [
+      "Login via Supabase SSR session",
+      "No middleware gating",
+      "Session stored in cookie",
+      "Unauthorized redirect to /login"
+    ],
+    "sidebar": [
+      "Only shows menus accessible by logged-in role",
+      "No disabled/greyed out menus",
+      "No placeholder menus",
+      "Role without access = menu not rendered"
+    ],
+    "rls": [
+      "Default deny on all sensitive tables",
+      "Director read-only hard lock",
+      "Ops uses v_ops_rfqs_masked for RFQ",
+      "Sales DSO read-only + scoped by customer ownership"
+    ],
+    "mutations": [
+      "All create/update via Route Handlers",
+      "No service role key in client",
+      "Bulk import via server-side parsing"
+    ],
+    "ui": [
+      "Light theme only",
+      "Glassmorphism cards",
+      "Border radius 14-18px",
+      "Desktop: fixed sidebar",
+      "Mobile: drawer + bottom-sheet filter"
+    ]
+  },
+  "validation_rules": {
+    "role_check": "SELECT COUNT(*) = 15 FROM roles",
+    "menu_check": "Sidebar.tsx must only render 5 top-level items",
+    "color_check": "tailwind.config.ts must only use locked palette",
+    "rls_check": "All tables in 02_rls.sql must have RLS enabled"
+  }
+}

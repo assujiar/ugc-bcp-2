@@ -1,0 +1,281 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useUser } from "@/lib/contexts/user-context";
+import { FilterBar, FilterField } from "@/components/filter";
+import { DataTable, Column } from "@/components/table";
+import {
+  Users,
+  ArrowLeft,
+  TrendingUp,
+  TrendingDown,
+  MoreHorizontal,
+  Target,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Filter fields
+const filterFields: FilterField[] = [
+  {
+    key: "search",
+    label: "Search",
+    type: "search",
+    placeholder: "Search team member...",
+  },
+  {
+    key: "period",
+    label: "Period",
+    type: "select",
+    options: [
+      { value: "this_month", label: "This Month" },
+      { value: "last_month", label: "Last Month" },
+      { value: "this_quarter", label: "This Quarter" },
+    ],
+    defaultValue: "this_month",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { value: "on_track", label: "On Track" },
+      { value: "at_risk", label: "At Risk" },
+      { value: "behind", label: "Behind" },
+    ],
+  },
+];
+
+// Mock team data
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  kpiCount: number;
+  onTrack: number;
+  atRisk: number;
+  behind: number;
+  overallProgress: number;
+  trend: number;
+}
+
+const teamData: TeamMember[] = [
+  {
+    id: "1",
+    name: "John Doe",
+    role: "salesperson",
+    avatar: "J",
+    kpiCount: 5,
+    onTrack: 3,
+    atRisk: 1,
+    behind: 1,
+    overallProgress: 78,
+    trend: 5.2,
+  },
+  {
+    id: "2",
+    name: "Jane Smith",
+    role: "salesperson",
+    avatar: "J",
+    kpiCount: 5,
+    onTrack: 4,
+    atRisk: 1,
+    behind: 0,
+    overallProgress: 92,
+    trend: 12.8,
+  },
+  {
+    id: "3",
+    name: "Bob Wilson",
+    role: "salesperson",
+    avatar: "B",
+    kpiCount: 5,
+    onTrack: 2,
+    atRisk: 2,
+    behind: 1,
+    overallProgress: 65,
+    trend: -3.5,
+  },
+  {
+    id: "4",
+    name: "Alice Brown",
+    role: "salesperson",
+    avatar: "A",
+    kpiCount: 5,
+    onTrack: 5,
+    atRisk: 0,
+    behind: 0,
+    overallProgress: 98,
+    trend: 15.2,
+  },
+];
+
+// Table columns
+const columns: Column<TeamMember>[] = [
+  {
+    key: "name",
+    header: "Team Member",
+    render: (_, row) => (
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-white text-sm font-semibold">
+          {row.avatar}
+        </div>
+        <div>
+          <p className="font-medium text-foreground">{row.name}</p>
+          <p className="text-xs text-muted-foreground capitalize">{row.role}</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: "kpiCount",
+    header: "KPIs",
+    align: "center",
+    render: (value) => (
+      <span className="badge">{value as number} KPIs</span>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status Breakdown",
+    render: (_, row) => (
+      <div className="flex items-center gap-2">
+        <span className="badge-success text-xs">{row.onTrack} On Track</span>
+        {row.atRisk > 0 && <span className="badge-warning text-xs">{row.atRisk} At Risk</span>}
+        {row.behind > 0 && <span className="badge-destructive text-xs">{row.behind} Behind</span>}
+      </div>
+    ),
+  },
+  {
+    key: "overallProgress",
+    header: "Overall Progress",
+    render: (_, row) => (
+      <div className="flex items-center gap-3 min-w-[120px]">
+        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full",
+              row.overallProgress >= 80 && "bg-success",
+              row.overallProgress >= 60 && row.overallProgress < 80 && "bg-warning",
+              row.overallProgress < 60 && "bg-destructive"
+            )}
+            style={{ width: `${row.overallProgress}%` }}
+          />
+        </div>
+        <span className="text-sm font-medium w-10">{row.overallProgress}%</span>
+      </div>
+    ),
+  },
+  {
+    key: "trend",
+    header: "Trend",
+    align: "right",
+    render: (_, row) => (
+      <div className={cn(
+        "flex items-center justify-end gap-1 text-sm font-medium",
+        row.trend >= 0 ? "text-success" : "text-destructive"
+      )}>
+        {row.trend >= 0 ? (
+          <TrendingUp className="h-4 w-4" />
+        ) : (
+          <TrendingDown className="h-4 w-4" />
+        )}
+        {Math.abs(row.trend)}%
+      </div>
+    ),
+  },
+];
+
+export default function KpiTeamPage() {
+  const { user, isSalesManager: isSM, isMarketingManager: isMM, isSuperAdmin, isDirector } = useUser();
+
+  // Check access
+  const canViewTeam = isSalesManager: isSM || isMarketingManager: isMM || isSuperAdmin || isDirector;
+
+  if (!canViewTeam) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Target className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold text-foreground mb-2">Access Restricted</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          Team KPI view is only available for managers and above.
+        </p>
+        <Link href="/kpi/my" className="btn-primary mt-4">
+          View My KPIs
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+          <Link href="/kpi" className="hover:text-foreground transition-colors">
+            KPI
+          </Link>
+          <span>/</span>
+          <span>Team</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Team KPIs</h1>
+            <p className="text-muted-foreground">
+              Monitor your team&apos;s performance metrics
+            </p>
+          </div>
+          <Link
+            href="/kpi"
+            className="btn-outline inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to KPI
+          </Link>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="card text-center">
+          <p className="text-sm text-muted-foreground">Team Members</p>
+          <p className="text-2xl font-bold text-foreground">{teamData.length}</p>
+        </div>
+        <div className="card text-center">
+          <p className="text-sm text-muted-foreground">Avg Progress</p>
+          <p className="text-2xl font-bold text-success">
+            {Math.round(teamData.reduce((a, b) => a + b.overallProgress, 0) / teamData.length)}%
+          </p>
+        </div>
+        <div className="card text-center">
+          <p className="text-sm text-muted-foreground">On Track</p>
+          <p className="text-2xl font-bold text-success">
+            {teamData.filter(t => t.overallProgress >= 80).length}
+          </p>
+        </div>
+        <div className="card text-center">
+          <p className="text-sm text-muted-foreground">Needs Attention</p>
+          <p className="text-2xl font-bold text-warning">
+            {teamData.filter(t => t.overallProgress < 80).length}
+          </p>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <DataTable
+        data={teamData}
+        columns={columns}
+        total={teamData.length}
+        pageSize={10}rowActions={(row) => (
+          <button className="btn-ghost btn-icon">
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        )}
+      />
+    </>
+  );
+}
+
+
+
