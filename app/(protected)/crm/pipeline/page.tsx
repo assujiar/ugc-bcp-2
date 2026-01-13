@@ -10,6 +10,10 @@ import {
   DollarSign,
   Calendar,
   Loader2,
+  AlertTriangle,
+  History,
+  Trophy,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +38,8 @@ interface Opportunity {
   estimated_value: number | null;
   next_step: string;
   next_step_due_date: string;
+  closed_at?: string | null;
+  lost_reason?: string | null;
   account?: { account_id: string; company_name: string; city: string | null } | null;
   owner?: { user_id: string; full_name: string } | null;
 }
@@ -43,6 +49,16 @@ interface PipelineSummary {
   opportunity_count: number;
   total_value: number;
 }
+
+// PR5.1/PR5.3: Pipeline view tabs
+type PipelineTab = "pipeline" | "overdue" | "won" | "lost";
+
+const PIPELINE_TABS: { id: PipelineTab; label: string; icon: React.ElementType; apiView: string }[] = [
+  { id: "pipeline", label: "Active Pipeline", icon: Kanban, apiView: "pipeline" },
+  { id: "overdue", label: "My Overdue", icon: AlertTriangle, apiView: "my_overdue" },
+  { id: "won", label: "Won Deals", icon: Trophy, apiView: "won" },
+  { id: "lost", label: "Lost Deals", icon: XCircle, apiView: "lost" },
+];
 
 const STAGES = [
   { key: "Prospecting", label: "Prospecting", color: "bg-info" },
@@ -59,6 +75,7 @@ export default function PipelinePage() {
   const [opportunities, setOpportunities] = React.useState<Opportunity[]>([]);
   const [_pipelineSummary, setPipelineSummary] = React.useState<PipelineSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<PipelineTab>("pipeline");
   const [view, setView] = React.useState<"kanban" | "list">("kanban");
   const [search, setSearch] = React.useState("");
   const [showQuickAddModal, setShowQuickAddModal] = React.useState(false);
@@ -80,10 +97,13 @@ export default function PipelinePage() {
     lostReason: "",
   });
 
+  // PR5.1/PR5.3: Fetch based on active tab
   const fetchOpportunities = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/crm/opportunities?view=pipeline&pageSize=200");
+      const tabConfig = PIPELINE_TABS.find((t) => t.id === activeTab);
+      const apiView = tabConfig?.apiView || "pipeline";
+      const res = await fetch(`/api/crm/opportunities?view=${apiView}&pageSize=200`);
       if (res.ok) {
         const data = await res.json();
         setOpportunities(data.data || []);
@@ -94,7 +114,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab]);
 
   React.useEffect(() => {
     fetchOpportunities();
@@ -275,20 +295,24 @@ export default function PipelinePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setView("kanban")}
-            className={cn("btn-ghost h-9 px-3", view === "kanban" && "bg-muted")}
-          >
-            <Kanban className="h-4 w-4 mr-2" />
-            Kanban
-          </button>
-          <button
-            onClick={() => setView("list")}
-            className={cn("btn-ghost h-9 px-3", view === "list" && "bg-muted")}
-          >
-            <List className="h-4 w-4 mr-2" />
-            List
-          </button>
+          {activeTab === "pipeline" && (
+            <>
+              <button
+                onClick={() => setView("kanban")}
+                className={cn("btn-ghost h-9 px-3", view === "kanban" && "bg-muted")}
+              >
+                <Kanban className="h-4 w-4 mr-2" />
+                Kanban
+              </button>
+              <button
+                onClick={() => setView("list")}
+                className={cn("btn-ghost h-9 px-3", view === "list" && "bg-muted")}
+              >
+                <List className="h-4 w-4 mr-2" />
+                List
+              </button>
+            </>
+          )}
           <button
             onClick={() => setShowQuickAddModal(true)}
             className="btn-primary h-9"
@@ -297,6 +321,28 @@ export default function PipelinePage() {
             {actionLabels.quickCreate}
           </button>
         </div>
+      </div>
+
+      {/* PR5.1/PR5.3: Pipeline Tabs */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {PIPELINE_TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                activeTab === tab.id
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search */}
@@ -313,8 +359,152 @@ export default function PipelinePage() {
         </div>
       </div>
 
+      {/* PR5.1: Overdue List */}
+      {activeTab === "overdue" && (
+        <div className="card-flush overflow-hidden">
+          {filteredOpportunities.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              No overdue opportunities
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Opportunity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Account</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Stage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Overdue Since</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Next Step</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredOpportunities.map((opp) => {
+                  const daysOverdue = Math.ceil(
+                    (new Date().getTime() - new Date(opp.next_step_due_date).getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  );
+                  const stageConfig = STAGES.find((s) => s.key === opp.stage);
+                  return (
+                    <tr key={opp.opportunity_id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-medium text-foreground">{opp.name}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Link
+                          href={`/crm/accounts/${opp.account?.account_id}`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {opp.account?.company_name || "-"}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "inline-flex px-2 py-1 rounded-full text-xs font-medium text-white",
+                          stageConfig?.color || "bg-muted"
+                        )}>
+                          {stageConfig?.label || opp.stage}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-foreground">{formatCurrency(opp.estimated_value)}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-destructive font-medium">
+                          {daysOverdue} days overdue
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-sm text-foreground">{opp.next_step}</p>
+                          <select
+                            value={opp.stage}
+                            onChange={(e) => handleStageChange(opp.opportunity_id, e.target.value)}
+                            className="mt-1 text-xs bg-muted/50 border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            {STAGES.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* PR5.3: Won/Lost History */}
+      {(activeTab === "won" || activeTab === "lost") && (
+        <div className="card-flush overflow-hidden">
+          {filteredOpportunities.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              No {activeTab} deals found
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Opportunity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Account</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{activeTab === "won" ? "Closed Date" : "Lost Date"}</th>
+                  {activeTab === "lost" && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Lost Reason</th>
+                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Owner</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredOpportunities.map((opp) => (
+                  <tr key={opp.opportunity_id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-foreground">{opp.name}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/crm/accounts/${opp.account?.account_id}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {opp.account?.company_name || "-"}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "text-sm font-medium",
+                        activeTab === "won" ? "text-success" : "text-muted-foreground"
+                      )}>
+                        {formatCurrency(opp.estimated_value)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-foreground">
+                        {opp.closed_at ? new Date(opp.closed_at).toLocaleDateString() : "-"}
+                      </span>
+                    </td>
+                    {activeTab === "lost" && (
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-muted-foreground">{opp.lost_reason || "-"}</span>
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-muted-foreground">{opp.owner?.full_name || "-"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {/* Kanban Board */}
-      {view === "kanban" && (
+      {activeTab === "pipeline" && view === "kanban" && (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {STAGES.filter((s) => !["Closed Won", "Closed Lost"].includes(s.key)).map((stage) => {
             const stageOpps = getOpportunitiesByStage(stage.key);
@@ -404,7 +594,7 @@ export default function PipelinePage() {
       )}
 
       {/* List View */}
-      {view === "list" && (
+      {activeTab === "pipeline" && view === "list" && (
         <div className="card-flush overflow-hidden">
           <table className="w-full">
             <thead>

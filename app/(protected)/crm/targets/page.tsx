@@ -11,6 +11,12 @@ import {
   Loader2,
   Globe,
   Calendar,
+  FileSpreadsheet,
+  CheckCircle,
+  XCircle,
+  Ban,
+  ListTodo,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -42,6 +48,20 @@ interface ProspectingTarget {
   owner?: { user_id: string; full_name: string } | null;
 }
 
+// PR3.2: Status tabs configuration
+type TargetTab = "all" | "new" | "contacted" | "converted" | "not_interested" | "invalid";
+
+const TARGET_TABS: { id: TargetTab; label: string; icon: React.ElementType; status: string | null }[] = [
+  { id: "all", label: "All Targets", icon: ListTodo, status: null },
+  { id: "new", label: "New", icon: Target, status: "New" },
+  { id: "contacted", label: "Contacted", icon: Phone, status: "Contacted" },
+  { id: "converted", label: "Converted", icon: CheckCircle, status: "Converted" },
+  { id: "not_interested", label: "Not Interested", icon: Ban, status: "Not Interested" },
+  { id: "invalid", label: "Invalid", icon: XCircle, status: "Invalid" },
+];
+
+const TARGET_STATUSES = ["New", "Contacted", "Converted", "Not Interested", "Invalid"] as const;
+
 const STATUS_COLORS: Record<string, string> = {
   New: "bg-primary/10 text-primary",
   Contacted: "bg-warning/10 text-warning",
@@ -50,11 +70,23 @@ const STATUS_COLORS: Record<string, string> = {
   Invalid: "bg-destructive/10 text-destructive",
 };
 
+// PR3.1: CSV Import types
+interface CSVRow {
+  company_name: string;
+  domain?: string;
+  industry?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  city?: string;
+  notes?: string;
+}
+
 export default function TargetsPage() {
   const [targets, setTargets] = React.useState<ProspectingTarget[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<TargetTab>("all");
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [addData, setAddData] = React.useState({
     company_name: "",
@@ -68,13 +100,28 @@ export default function TargetsPage() {
   });
   const [submitting, setSubmitting] = React.useState(false);
   const [converting, setConverting] = React.useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = React.useState<string | null>(null);
 
+  // PR3.1: CSV Import state
+  const [showImportModal, setShowImportModal] = React.useState(false);
+  const [csvData, setCsvData] = React.useState<CSVRow[]>([]);
+  const [csvError, setCsvError] = React.useState<string | null>(null);
+  const [importing, setImporting] = React.useState(false);
+  const [importResult, setImportResult] = React.useState<{ imported: number; total: number } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // PR3.2: Fetch based on active tab
   const fetchTargets = React.useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ pageSize: "100" });
       if (search) params.set("search", search);
-      if (statusFilter) params.set("status", statusFilter);
+
+      // Get status filter from active tab
+      const tabConfig = TARGET_TABS.find((t) => t.id === activeTab);
+      if (tabConfig?.status) {
+        params.set("status", tabConfig.status);
+      }
 
       const res = await fetch(`/api/crm/targets?${params}`);
       if (res.ok) {
@@ -86,12 +133,146 @@ export default function TargetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, activeTab]);
 
   React.useEffect(() => {
     const debounce = setTimeout(fetchTargets, 300);
     return () => clearTimeout(debounce);
   }, [fetchTargets]);
+
+  // PR3.2: Handle status update
+  const handleStatusChange = async (targetId: string, newStatus: string) => {
+    setUpdatingStatus(targetId);
+    try {
+      const res = await fetch(`/api/crm/targets/${targetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        fetchTargets();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update status");
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // PR3.1: Parse CSV file
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvError(null);
+    setCsvData([]);
+    setImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split("\n").filter((line) => line.trim());
+
+        if (lines.length < 2) {
+          setCsvError("CSV file must have a header row and at least one data row");
+          return;
+        }
+
+        // Parse header
+        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/[^a-z_]/g, "_"));
+
+        // Map common variations
+        const headerMap: Record<string, string> = {
+          company: "company_name",
+          name: "company_name",
+          website: "domain",
+          email: "contact_email",
+          phone: "contact_phone",
+          contact: "contact_name",
+        };
+
+        const normalizedHeaders = headers.map((h) => headerMap[h] || h);
+
+        // Check for required field
+        if (!normalizedHeaders.includes("company_name")) {
+          setCsvError("CSV must have a 'company_name' or 'company' column");
+          return;
+        }
+
+        // Parse data rows
+        const rows: CSVRow[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+          const row: Record<string, string> = {};
+
+          normalizedHeaders.forEach((header, index) => {
+            if (values[index]) {
+              row[header] = values[index];
+            }
+          });
+
+          if (row.company_name) {
+            rows.push(row as unknown as CSVRow);
+          }
+        }
+
+        if (rows.length === 0) {
+          setCsvError("No valid data rows found in CSV");
+          return;
+        }
+
+        setCsvData(rows);
+      } catch (err) {
+        setCsvError("Failed to parse CSV file");
+        console.error("CSV parse error:", err);
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  // PR3.1: Import CSV data
+  const handleImportCSV = async () => {
+    if (csvData.length === 0) return;
+
+    setImporting(true);
+    try {
+      const res = await fetch("/api/crm/targets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targets: csvData }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setImportResult({ imported: data.imported, total: data.total });
+        fetchTargets();
+      } else {
+        const data = await res.json();
+        setCsvError(data.error || "Failed to import targets");
+      }
+    } catch (err) {
+      setCsvError("Failed to import targets");
+      console.error("Import error:", err);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setCsvData([]);
+    setCsvError(null);
+    setImportResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleAddTarget = async () => {
     if (!addData.company_name) {
@@ -198,7 +379,7 @@ export default function TargetsPage() {
           <p className="text-muted-foreground">{pageLabels.prospectingTargets.subtitle}</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-outline h-10">
+          <button onClick={() => setShowImportModal(true)} className="btn-outline h-10">
             <Upload className="h-4 w-4 mr-2" />
             {actionLabels.import}
           </button>
@@ -207,6 +388,28 @@ export default function TargetsPage() {
             {actionLabels.add} Target
           </button>
         </div>
+      </div>
+
+      {/* PR3.2: Status Tabs */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {TARGET_TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                activeTab === tab.id
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Stats */}
@@ -249,7 +452,7 @@ export default function TargetsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -261,18 +464,6 @@ export default function TargetsPage() {
             className="w-full h-10 pl-10 pr-4 rounded-xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 px-3 rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-        >
-          <option value="">All Status</option>
-          <option value="New">New</option>
-          <option value="Contacted">Contacted</option>
-          <option value="Converted">Converted</option>
-          <option value="Not Interested">Not Interested</option>
-          <option value="Invalid">Invalid</option>
-        </select>
       </div>
 
       {/* Target List */}
@@ -326,9 +517,26 @@ export default function TargetsPage() {
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", STATUS_COLORS[target.status] || "bg-muted text-muted-foreground")}>
-                      {target.status}
-                    </span>
+                    {/* PR3.2: Status dropdown for updates */}
+                    <select
+                      value={target.status}
+                      onChange={(e) => handleStatusChange(target.target_id, e.target.value)}
+                      disabled={updatingStatus === target.target_id || target.status === "Converted" || target.status === "Invalid"}
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50",
+                        STATUS_COLORS[target.status] || "bg-muted text-muted-foreground",
+                        (target.status === "Converted" || target.status === "Invalid") && "cursor-not-allowed opacity-70"
+                      )}
+                    >
+                      {TARGET_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    {updatingStatus === target.target_id && (
+                      <Loader2 className="inline-block ml-2 h-3 w-3 animate-spin" />
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm text-foreground">{formatDate(target.next_outreach_at)}</span>
@@ -441,6 +649,105 @@ export default function TargetsPage() {
             <button onClick={handleAddTarget} className="btn-primary" disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Target"}
             </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PR3.1: CSV Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={closeImportModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-5 w-5" />
+                Import Targets from CSV
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* File Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select CSV File</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileSelect}
+                className="w-full h-10 px-3 py-2 rounded-lg bg-muted/50 border border-border text-foreground file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+              />
+              <p className="text-xs text-muted-foreground">
+                Required column: company_name (or company). Optional: domain, industry, contact_name, contact_email, contact_phone, city
+              </p>
+            </div>
+
+            {/* Error Display */}
+            {csvError && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                {csvError}
+              </div>
+            )}
+
+            {/* Success Display */}
+            {importResult && (
+              <div className="p-3 rounded-lg bg-success/10 text-success text-sm">
+                Successfully imported {importResult.imported} of {importResult.total} targets
+              </div>
+            )}
+
+            {/* Preview Table */}
+            {csvData.length > 0 && !importResult && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Preview ({csvData.length} rows)</p>
+                <div className="max-h-64 overflow-auto border border-border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Company</th>
+                        <th className="px-3 py-2 text-left">Domain</th>
+                        <th className="px-3 py-2 text-left">Contact</th>
+                        <th className="px-3 py-2 text-left">City</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {csvData.slice(0, 10).map((row, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2">{row.company_name}</td>
+                          <td className="px-3 py-2">{row.domain || "-"}</td>
+                          <td className="px-3 py-2">{row.contact_name || "-"}</td>
+                          <td className="px-3 py-2">{row.city || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {csvData.length > 10 && (
+                  <p className="text-xs text-muted-foreground">
+                    Showing first 10 of {csvData.length} rows
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <button onClick={closeImportModal} className="btn-outline" disabled={importing}>
+              {importResult ? "Close" : "Cancel"}
+            </button>
+            {!importResult && (
+              <button
+                onClick={handleImportCSV}
+                className="btn-primary"
+                disabled={importing || csvData.length === 0}
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Importing...
+                  </>
+                ) : (
+                  `Import ${csvData.length} Targets`
+                )}
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

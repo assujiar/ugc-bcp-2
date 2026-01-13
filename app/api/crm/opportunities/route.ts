@@ -54,10 +54,17 @@ export async function GET(request: NextRequest) {
     if (view === "pipeline") {
       query = query.not("stage", "in", "(\"Closed Won\",\"Closed Lost\")");
     } else if (view === "my_overdue") {
+      // PR5.1: My overdue opportunities
       query = query
         .eq("owner_user_id", profile.user_id)
         .lt("next_step_due_date", new Date().toISOString().split("T")[0])
         .not("stage", "in", "(\"Closed Won\",\"Closed Lost\")");
+    } else if (view === "won") {
+      // PR5.3: Won deals history
+      query = query.eq("stage", "Closed Won");
+    } else if (view === "lost") {
+      // PR5.3: Lost deals history
+      query = query.eq("stage", "Closed Lost");
     }
 
     // Apply filters
