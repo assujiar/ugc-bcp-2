@@ -115,7 +115,7 @@ export default function NewLeadPage() {
       toastSuccess("Lead Created", "The lead has been created successfully");
       router.push("/crm/lead-inbox");
     } else {
-      toastError("Error", result.error || "Failed to create lead");
+      toastError("Error", result.error?.message || "Failed to create lead");
     }
 
     setSubmitting(false);
