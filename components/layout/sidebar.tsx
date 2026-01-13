@@ -63,6 +63,7 @@ const allNavItems: NavItem[] = [
       { label: navLabels.accounts, href: "/crm/accounts" },
       { label: navLabels.prospectingTargets, href: "/crm/targets" },
       { label: navLabels.activities, href: "/crm/activities" },
+      { label: navLabels.actionableItems, href: "/crm/actionable" },
     ],
   },
   {
