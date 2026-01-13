@@ -251,7 +251,8 @@ CREATE INDEX IF NOT EXISTS idx_opportunities_value ON opportunities(estimated_va
 -- Activities list view indexes
 CREATE INDEX IF NOT EXISTS idx_activities_owner_status ON activities(owner_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_activities_due_planned ON activities(due_date) WHERE status = 'Planned';
-CREATE INDEX IF NOT EXISTS idx_activities_overdue ON activities(due_date) WHERE status = 'Planned' AND due_date < CURRENT_DATE;
+-- Note: Cannot create partial index with CURRENT_DATE as it's not immutable
+-- Overdue activities should be queried at runtime: WHERE status = 'Planned' AND due_date < CURRENT_DATE
 CREATE INDEX IF NOT EXISTS idx_activities_type_status ON activities(activity_type, status);
 CREATE INDEX IF NOT EXISTS idx_activities_opp_status ON activities(related_opportunity_id, status);
 CREATE INDEX IF NOT EXISTS idx_activities_account_status ON activities(related_account_id, status);

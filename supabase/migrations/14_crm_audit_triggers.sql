@@ -10,6 +10,60 @@
 -- =============================================================================
 
 -- =========================
+-- ENSURE DEPENDENCIES EXIST
+-- =========================
+
+-- Create CRM action type enum if not exists (dependency from 12_crm_audit_logs.sql)
+DO $$ BEGIN
+  CREATE TYPE crm_audit_action AS ENUM (
+    -- Lead actions
+    'LEAD_CREATED',
+    'LEAD_UPDATED',
+    'LEAD_TRIAGE',
+    'LEAD_QUALIFIED',
+    'LEAD_DISQUALIFIED',
+    'LEAD_HANDED_OVER',
+    'LEAD_CLAIMED',
+    'LEAD_CONVERTED',
+
+    -- Opportunity actions
+    'OPPORTUNITY_CREATED',
+    'OPPORTUNITY_UPDATED',
+    'OPPORTUNITY_STAGE_CHANGED',
+    'OPPORTUNITY_WON',
+    'OPPORTUNITY_LOST',
+
+    -- Activity actions
+    'ACTIVITY_CREATED',
+    'ACTIVITY_UPDATED',
+    'ACTIVITY_COMPLETED',
+    'ACTIVITY_CANCELLED',
+
+    -- Account actions
+    'ACCOUNT_CREATED',
+    'ACCOUNT_UPDATED',
+    'ACCOUNT_MERGED',
+
+    -- Contact actions
+    'CONTACT_CREATED',
+    'CONTACT_UPDATED',
+
+    -- Target actions
+    'TARGET_CREATED',
+    'TARGET_UPDATED',
+    'TARGET_CONVERTED',
+    'TARGET_STATUS_CHANGED',
+
+    -- Generic actions (fallback)
+    'INSERT',
+    'UPDATE',
+    'DELETE',
+    'MERGE'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- =========================
 -- LEADS AUDIT TRIGGER
 -- =========================
 
