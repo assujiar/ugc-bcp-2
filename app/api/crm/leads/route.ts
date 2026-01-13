@@ -61,9 +61,10 @@ export async function GET(request: NextRequest) {
       query = query.eq("triage_status", "Handed Over");
       query = query.is("sales_owner_user_id", null);
     } else if (view === "my_leads") {
-      // My Leads: Claimed leads assigned to current user (not yet converted)
+      // My Leads: Claimed leads assigned to current user (not yet fully converted)
+      // Leads with status "Closed Won" have been fully converted and should not appear here
       query = query.eq("sales_owner_user_id", profile.user_id);
-      query = query.neq("status", "converted");
+      query = query.not("status", "in", '("Closed Won","Closed Lost")');
     } else if (view === "nurture") {
       // Nurture leads: available in Lead Inbox nurture tab
       query = query.eq("triage_status", "Nurture");
