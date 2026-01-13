@@ -147,11 +147,13 @@ CREATE INDEX IF NOT EXISTS idx_crm_transition_created ON crm_transition_logs(cre
 -- Enable RLS
 ALTER TABLE crm_transition_logs ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (drop if exists before creating to ensure idempotency)
+DROP POLICY IF EXISTS crm_transition_select ON crm_transition_logs;
 CREATE POLICY crm_transition_select ON crm_transition_logs FOR SELECT USING (
   app_is_super_admin() OR app_is_director()
 );
 
+DROP POLICY IF EXISTS crm_transition_insert ON crm_transition_logs;
 CREATE POLICY crm_transition_insert ON crm_transition_logs FOR INSERT WITH CHECK (
   true -- Allow all inserts (controlled via SECURITY DEFINER functions)
 );
