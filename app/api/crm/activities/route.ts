@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { z } from "zod";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 const ACTIVITY_TYPES = [
   "Call", "Email", "Visit", "Online Meeting", "WhatsApp",
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -101,10 +102,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching activities:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       data,
       pagination: {
         page,
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error in GET /api/crm/activities:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
 
@@ -126,17 +127,14 @@ export async function POST(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const body = await request.json();
     const validation = createActivitySchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return apiErrors.validation("Validation error", validation.error.issues);
     }
 
     const activityData = validation.data;
@@ -144,17 +142,13 @@ export async function POST(request: NextRequest) {
     // GUARDRAIL: Planned activities require a due_date (SSOT requirement)
     const effectiveStatus = activityData.status || "Planned";
     if (effectiveStatus === "Planned" && !activityData.due_date) {
-      return NextResponse.json({
-        error: "Planned activities require a due_date (SSOT guardrail: every active item needs owner + due_date)"
-      }, { status: 400 });
+      return apiErrors.validation("Planned activities require a due_date (SSOT guardrail: every active item needs owner + due_date)");
     }
 
     // Visit type requires evidence and GPS
     if (activityData.activity_type === "Visit" && activityData.status === "Done") {
       if (!activityData.evidence_url || !activityData.gps_lat || !activityData.gps_lng) {
-        return NextResponse.json({
-          error: "Visit activities require evidence_url, gps_lat, and gps_lng when marked as Done"
-        }, { status: 400 });
+        return apiErrors.validation("Visit activities require evidence_url, gps_lat, and gps_lng when marked as Done");
       }
     }
 
@@ -177,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating activity:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     // Log audit
@@ -189,9 +183,9 @@ export async function POST(request: NextRequest) {
       after_data: activity,
     });
 
-    return NextResponse.json({ activity }, { status: 201 });
+    return apiSuccess({ data: { activity }, status: 201 });
   } catch (error) {
     console.error("Error in POST /api/crm/activities:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { z } from "zod";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 const createContactSchema = z.object({
   account_id: z.string().min(1, "Account ID is required"),
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -62,10 +63,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching contacts:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       data,
       pagination: {
         page,
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error in GET /api/crm/contacts:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
 
@@ -87,17 +88,14 @@ export async function POST(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const body = await request.json();
     const validation = createContactSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return apiErrors.validation("Validation error", validation.error.issues);
     }
 
     const contactData = validation.data;
@@ -123,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating contact:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     // Log audit
@@ -135,9 +133,9 @@ export async function POST(request: NextRequest) {
       after_data: contact,
     });
 
-    return NextResponse.json({ contact }, { status: 201 });
+    return apiSuccess({ data: { contact }, status: 201 });
   } catch (error) {
     console.error("Error in POST /api/crm/contacts:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

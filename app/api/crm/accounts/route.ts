@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { z } from "zod";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 const createAccountSchema = z.object({
   company_name: z.string().min(1),
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -58,10 +59,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching accounts:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       data,
       pagination: {
         page,
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error in GET /api/crm/accounts:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
 
@@ -83,17 +84,14 @@ export async function POST(request: NextRequest) {
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const body = await request.json();
     const validation = createAccountSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return apiErrors.validation("Validation error", validation.error.issues);
     }
 
     const accountData = validation.data;
@@ -109,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating account:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     // Log audit
@@ -121,9 +119,9 @@ export async function POST(request: NextRequest) {
       after_data: account,
     });
 
-    return NextResponse.json({ account }, { status: 201 });
+    return apiSuccess({ data: { account }, status: 201 });
   } catch (error) {
     console.error("Error in POST /api/crm/accounts:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

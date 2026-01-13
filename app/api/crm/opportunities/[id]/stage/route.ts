@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 const OPPORTUNITY_STAGES = [
   "Prospecting", "Discovery", "Proposal Sent", "Quote Sent",
@@ -27,7 +28,7 @@ export async function POST(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { id } = await params;
@@ -35,10 +36,7 @@ export async function POST(
     const validation = stageChangeSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return apiErrors.validation("Validation error", validation.error.issues);
     }
 
     const { new_stage, next_step, next_step_due_date, lost_reason, notes } = validation.data;
@@ -59,18 +57,18 @@ export async function POST(
 
     if (error) {
       console.error("Error in stage change RPC:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     const result = data as { success: boolean; error?: string; opportunity_id?: string; new_stage?: string };
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return apiErrors.badRequest(result.error || "Failed to change stage");
     }
 
-    return NextResponse.json(result);
+    return apiSuccess({ data: result });
   } catch (error) {
     console.error("Error in POST /api/crm/opportunities/[id]/stage:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
