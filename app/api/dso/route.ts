@@ -23,6 +23,16 @@ export async function GET(request: NextRequest) {
         .select("*");
 
       if (agingError) {
+        console.error("Error fetching v_invoice_aging:", agingError);
+        // Return empty summary if view/table doesn't exist
+        if (agingError.code === "42P01" || agingError.message?.includes("does not exist")) {
+          return NextResponse.json({
+            total_ar: 0,
+            total_overdue: 0,
+            overdue_count: 0,
+            total_invoices: 0,
+          });
+        }
         return NextResponse.json({ error: agingError.message }, { status: 500 });
       }
 
@@ -52,6 +62,11 @@ export async function GET(request: NextRequest) {
         .order("ar_total", { ascending: false });
 
       if (error) {
+        console.error("Error fetching v_ar_aging:", error);
+        // Return empty result if view/table doesn't exist
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          return NextResponse.json({ data: [], totals: { bucket_1_30: 0, bucket_31_60: 0, bucket_61_90: 0, bucket_90_plus: 0 } });
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -89,6 +104,11 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (error) {
+        console.error("Error fetching v_dso_rolling_30:", error);
+        // Return empty result if view/table doesn't exist
+        if (error.code === "42P01" || error.message?.includes("does not exist") || error.code === "PGRST116") {
+          return NextResponse.json({ data: { dso_days_rolling_30: 0 } });
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -108,6 +128,11 @@ export async function GET(request: NextRequest) {
         .select("*");
 
       if (error) {
+        console.error("Error fetching v_my_customers_ar:", error);
+        // Return empty result if view/table doesn't exist
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          return NextResponse.json({ data: [] });
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -134,6 +159,19 @@ export async function GET(request: NextRequest) {
         .range((page - 1) * pageSize, page * pageSize - 1);
 
       if (error) {
+        console.error("Error fetching payments:", error);
+        // Return empty result if table doesn't exist (graceful degradation)
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          return NextResponse.json({
+            data: [],
+            pagination: {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+            },
+          });
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -166,6 +204,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid type parameter" }, { status: 400 });
   } catch (error) {
     console.error("Error in GET /api/dso:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    // Return empty result on any error (graceful degradation)
+    return NextResponse.json({
+      data: [],
+      total_ar: 0,
+      total_overdue: 0,
+      overdue_count: 0,
+      total_invoices: 0,
+    });
   }
 }
