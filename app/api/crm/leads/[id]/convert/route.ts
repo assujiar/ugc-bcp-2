@@ -209,21 +209,23 @@ export async function POST(
       after_data: { status: "Closed Won", opportunity_id: opportunityId },
     });
 
-    // Log CRM transition audit
-    await supabase.from("crm_audit_log").insert({
-      action: "LEAD_CONVERTED",
-      entity_type: "lead",
-      entity_id: lead.lead_id,
-      changed_by: profile.user_id,
-      old_values: { status: lead.status },
-      new_values: {
-        status: "Closed Won",
-        opportunity_id: opportunityId,
-        activities_seeded: insertedActivities?.length || 0,
-      },
-    }).catch(() => {
+    // Log CRM transition audit (ignore if table doesn't exist)
+    try {
+      await supabase.from("crm_audit_log").insert({
+        action: "LEAD_CONVERTED",
+        entity_type: "lead",
+        entity_id: lead.lead_id,
+        changed_by: profile.user_id,
+        old_values: { status: lead.status },
+        new_values: {
+          status: "Closed Won",
+          opportunity_id: opportunityId,
+          activities_seeded: insertedActivities?.length || 0,
+        },
+      });
+    } catch {
       // Ignore if crm_audit_log doesn't exist
-    });
+    }
 
     return apiSuccess({
       data: {
