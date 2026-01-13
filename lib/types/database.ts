@@ -69,12 +69,27 @@ export type ActivityTypeV2 =
   | "Internal Meeting"
   | "Other";
 
+// Target status aligned with SSOT
 export type TargetStatus =
-  | "New"
-  | "Contacted"
-  | "Converted"
-  | "Not Interested"
-  | "Invalid";
+  | "new_target"
+  | "contacted"
+  | "engaged"
+  | "qualified"
+  | "dropped"
+  | "converted";
+
+// Valid target status transitions (from -> to[])
+export const TARGET_STATUS_TRANSITIONS: Record<TargetStatus, TargetStatus[]> = {
+  new_target: ["contacted", "dropped"],
+  contacted: ["engaged", "dropped"],
+  engaged: ["qualified", "dropped"],
+  qualified: ["converted", "dropped"],
+  dropped: [], // Terminal state
+  converted: [], // Terminal state
+};
+
+// Terminal states that cannot be changed
+export const TARGET_TERMINAL_STATES: TargetStatus[] = ["dropped", "converted"];
 
 export type TenureStatus =
   | "Prospect"
@@ -181,6 +196,9 @@ export interface ProspectingTarget {
   converted_to_lead_id: string | null;
   converted_to_account_id: string | null;
   source: string | null;
+  drop_reason: string | null;
+  dropped_at: string | null;
+  converted_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
