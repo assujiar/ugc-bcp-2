@@ -141,6 +141,14 @@ export async function POST(request: NextRequest) {
 
     const activityData = validation.data;
 
+    // GUARDRAIL: Planned activities require a due_date (SSOT requirement)
+    const effectiveStatus = activityData.status || "Planned";
+    if (effectiveStatus === "Planned" && !activityData.due_date) {
+      return NextResponse.json({
+        error: "Planned activities require a due_date (SSOT guardrail: every active item needs owner + due_date)"
+      }, { status: 400 });
+    }
+
     // Visit type requires evidence and GPS
     if (activityData.activity_type === "Visit" && activityData.status === "Done") {
       if (!activityData.evidence_url || !activityData.gps_lat || !activityData.gps_lng) {

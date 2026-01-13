@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Search,
@@ -9,9 +10,17 @@ import {
   MapPin,
   Users,
   DollarSign,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { pageLabels, actionLabels, emptyStateMessages } from "@/lib/terminology/labels";
+import { pageLabels, actionLabels, emptyStateMessages, modalTitles, toastMessages } from "@/lib/terminology/labels";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface Account {
   account_id: string;
@@ -29,10 +38,23 @@ interface Account {
 }
 
 export default function AccountsPage() {
+  const router = useRouter();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [pagination, setPagination] = React.useState({ page: 1, pageSize: 50, total: 0 });
+  const [showAddModal, setShowAddModal] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [addData, setAddData] = React.useState({
+    company_name: "",
+    pic_name: "",
+    pic_email: "",
+    pic_phone: "",
+    domain: "",
+    industry: "",
+    city: "",
+    address: "",
+  });
 
   const fetchAccounts = React.useCallback(async () => {
     setLoading(true);
@@ -61,6 +83,47 @@ export default function AccountsPage() {
     const debounce = setTimeout(fetchAccounts, 300);
     return () => clearTimeout(debounce);
   }, [fetchAccounts]);
+
+  const handleAddAccount = async () => {
+    if (!addData.company_name || !addData.pic_name || !addData.pic_email || !addData.pic_phone) {
+      alert("Company name, contact name, email, and phone are required");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/crm/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addData),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setShowAddModal(false);
+        setAddData({
+          company_name: "",
+          pic_name: "",
+          pic_email: "",
+          pic_phone: "",
+          domain: "",
+          industry: "",
+          city: "",
+          address: "",
+        });
+        // Navigate to the new account
+        router.push(`/crm/accounts/${data.account.account_id}`);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to create account");
+      }
+    } catch (err) {
+      console.error("Error creating account:", err);
+      alert("An error occurred while creating the account");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const formatCurrency = (value: number | undefined) => {
     if (!value) return "-";
@@ -112,10 +175,10 @@ export default function AccountsPage() {
           <h1 className="text-2xl font-bold text-foreground">{pageLabels.accounts.title}</h1>
           <p className="text-muted-foreground">{pageLabels.accounts.subtitle}</p>
         </div>
-        <Link href="/crm/pipeline" className="btn-primary h-10">
+        <button onClick={() => setShowAddModal(true)} className="btn-primary h-10">
           <Plus className="h-4 w-4 mr-2" />
           {actionLabels.add} Account
-        </Link>
+        </button>
       </div>
 
       {/* Search */}
@@ -210,6 +273,98 @@ export default function AccountsPage() {
           </button>
         </div>
       )}
+
+      {/* Add Account Modal */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{modalTitles.addAccount}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Company Name *</label>
+              <input
+                type="text"
+                value={addData.company_name}
+                onChange={(e) => setAddData({ ...addData, company_name: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Domain</label>
+                <input
+                  type="text"
+                  value={addData.domain}
+                  onChange={(e) => setAddData({ ...addData, domain: e.target.value })}
+                  placeholder="example.com"
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Industry</label>
+                <input
+                  type="text"
+                  value={addData.industry}
+                  onChange={(e) => setAddData({ ...addData, industry: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-medium mb-3">Primary Contact</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Contact Name *</label>
+                  <input
+                    type="text"
+                    value={addData.pic_name}
+                    onChange={(e) => setAddData({ ...addData, pic_name: e.target.value })}
+                    className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Email *</label>
+                    <input
+                      type="email"
+                      value={addData.pic_email}
+                      onChange={(e) => setAddData({ ...addData, pic_email: e.target.value })}
+                      className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Phone *</label>
+                    <input
+                      type="tel"
+                      value={addData.pic_phone}
+                      onChange={(e) => setAddData({ ...addData, pic_phone: e.target.value })}
+                      className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">City</label>
+              <input
+                type="text"
+                value={addData.city}
+                onChange={(e) => setAddData({ ...addData, city: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setShowAddModal(false)} className="btn-outline" disabled={submitting}>
+              Cancel
+            </button>
+            <button onClick={handleAddAccount} className="btn-primary" disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
