@@ -59,18 +59,51 @@ export async function GET(request: NextRequest) {
         owner:profiles!activities_owner_user_id_fkey (user_id, full_name)
       `, { count: "exact" });
 
-    // Apply view filters
+    // PR4.1: Apply view filters for Work Queue buckets
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
     if (view === "inbox") {
       // Sales inbox: planned activities that are overdue or due today
       query = query
         .eq("owner_user_id", profile.user_id)
         .eq("status", "Planned")
-        .lte("due_date", new Date().toISOString().split("T")[0]);
+        .lte("due_date", today);
+    } else if (view === "overdue") {
+      // PR4.1: Overdue activities (past due)
+      query = query
+        .eq("owner_user_id", profile.user_id)
+        .eq("status", "Planned")
+        .lt("due_date", today);
+    } else if (view === "today") {
+      // PR4.1: Due today activities
+      query = query
+        .eq("owner_user_id", profile.user_id)
+        .eq("status", "Planned")
+        .eq("due_date", today);
+    } else if (view === "upcoming") {
+      // PR4.1: Upcoming activities (1-7 days)
+      query = query
+        .eq("owner_user_id", profile.user_id)
+        .eq("status", "Planned")
+        .gt("due_date", today)
+        .lte("due_date", nextWeek);
+    } else if (view === "all_planned") {
+      // PR4.1: All planned activities for the user
+      query = query
+        .eq("owner_user_id", profile.user_id)
+        .eq("status", "Planned");
     } else if (view === "planner") {
       // Activity planner: all planned activities for the user
       query = query
         .eq("owner_user_id", profile.user_id)
         .eq("status", "Planned");
+    } else if (view === "history") {
+      // Completed/cancelled activities for history view
+      query = query
+        .eq("owner_user_id", profile.user_id)
+        .in("status", ["Done", "Cancelled"]);
     }
 
     // Apply filters

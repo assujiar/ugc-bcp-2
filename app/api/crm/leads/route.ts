@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { z } from "zod";
+import {
+  generateCorrelationId,
+  apiSuccess,
+  unauthorizedError,
+  zodValidationError,
+  databaseError,
+  internalError,
+} from "@/lib/api/error";
 
 const createLeadSchema = z.object({
   company_name: z.string().min(1),
@@ -28,12 +36,14 @@ const createLeadSchema = z.object({
 
 // GET /api/crm/leads - List leads with triage status
 export async function GET(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const supabase = await createServerClient();
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorizedError("Authentication required", correlationId);
     }
 
     const { searchParams } = new URL(request.url);
@@ -100,43 +110,45 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
 
     if (error) {
-      console.error("Error fetching leads:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error(`[${correlationId}] Error fetching leads:`, error);
+      return databaseError(error.message, correlationId);
     }
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
+    return apiSuccess({
+      data: {
+        data,
+        pagination: {
+          page,
+          pageSize,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / pageSize),
+        },
       },
+      correlationId,
     });
   } catch (error) {
-    console.error("Error in GET /api/crm/leads:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error(`[${correlationId}] Error in GET /api/crm/leads:`, error);
+    return internalError("Failed to fetch leads", correlationId);
   }
 }
 
 // POST /api/crm/leads - Create new lead (intake)
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId();
+
   try {
     const supabase = await createServerClient();
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorizedError("Authentication required", correlationId);
     }
 
     const body = await request.json();
     const validation = createLeadSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return zodValidationError(validation.error, correlationId);
     }
 
     const leadData = validation.data;
@@ -169,8 +181,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Error creating lead:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error(`[${correlationId}] Error creating lead:`, error);
+      return databaseError(error.message, correlationId);
     }
 
     // Log audit
@@ -182,13 +194,17 @@ export async function POST(request: NextRequest) {
       after_data: lead,
     });
 
-    return NextResponse.json({
-      lead,
-      hasDuplicates: existingLeads && existingLeads.length > 0,
-      duplicates: existingLeads
-    }, { status: 201 });
+    return apiSuccess({
+      data: {
+        lead,
+        hasDuplicates: existingLeads && existingLeads.length > 0,
+        duplicates: existingLeads,
+      },
+      status: 201,
+      correlationId,
+    });
   } catch (error) {
-    console.error("Error in POST /api/crm/leads:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error(`[${correlationId}] Error in POST /api/crm/leads:`, error);
+    return internalError("Failed to create lead", correlationId);
   }
 }
