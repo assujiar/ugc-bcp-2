@@ -120,8 +120,8 @@ CREATE TABLE IF NOT EXISTS crm_transition_logs (
   to_state jsonb,
   changed_fields text[], -- List of fields that changed
 
-  -- Actor
-  actor_user_id uuid NOT NULL REFERENCES profiles(user_id),
+  -- Actor (can be NULL for system operations)
+  actor_user_id uuid REFERENCES profiles(user_id),
   actor_role text,
   actor_name text,
 
@@ -153,7 +153,7 @@ CREATE POLICY crm_transition_select ON crm_transition_logs FOR SELECT USING (
 );
 
 CREATE POLICY crm_transition_insert ON crm_transition_logs FOR INSERT WITH CHECK (
-  app_is_authenticated()
+  true -- Allow all inserts (controlled via SECURITY DEFINER functions)
 );
 
 -- =========================
@@ -185,13 +185,18 @@ BEGIN
   -- Generate or use provided correlation ID
   v_correlation_id := COALESCE(p_correlation_id, gen_random_uuid());
 
-  -- Get actor info
+  -- Get actor info (can be NULL for system operations)
   v_actor_user_id := auth.uid();
 
-  SELECT p.role_name, p.full_name
-  INTO v_actor_role, v_actor_name
-  FROM profiles p
-  WHERE p.user_id = v_actor_user_id;
+  IF v_actor_user_id IS NOT NULL THEN
+    SELECT p.role_name, p.full_name
+    INTO v_actor_role, v_actor_name
+    FROM profiles p
+    WHERE p.user_id = v_actor_user_id;
+  ELSE
+    v_actor_role := 'system';
+    v_actor_name := 'System Operation';
+  END IF;
 
   -- Calculate changed fields
   IF p_from_state IS NOT NULL AND p_to_state IS NOT NULL THEN
@@ -278,7 +283,7 @@ BEGIN
     p_entity,
     p_entity_id,
     p_action::text,
-    v_actor_user_id,
+    COALESCE(v_actor_user_id, '00000000-0000-0000-0000-000000000000'::uuid),
     p_from_state,
     p_to_state,
     p_entity,
