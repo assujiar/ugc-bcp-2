@@ -10,6 +10,7 @@ import {
   DollarSign,
   Calendar,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +27,7 @@ import {
   modalTitles,
   getOpportunityStageLabel,
 } from "@/lib/terminology/labels";
+import { toastError, toastSuccess } from "@/lib/hooks/use-toast";
 
 interface Opportunity {
   opportunity_id: string;
@@ -78,7 +80,9 @@ export default function PipelinePage() {
     nextStep: "",
     nextStepDueDate: "",
     lostReason: "",
+    outcome: "",
   });
+  const [stageError, setStageError] = React.useState<string | null>(null);
 
   const fetchOpportunities = React.useCallback(async () => {
     setLoading(true);
@@ -102,7 +106,7 @@ export default function PipelinePage() {
 
   const handleQuickAdd = async () => {
     if (!quickAddData.company_name || !quickAddData.contact_first_name) {
-      alert("Company name and contact name are required");
+      toastError("Validation Error", "Company name and contact name are required");
       return;
     }
 
@@ -118,6 +122,8 @@ export default function PipelinePage() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setShowQuickAddModal(false);
         setQuickAddData({
@@ -128,19 +134,27 @@ export default function PipelinePage() {
           estimated_value: "",
           notes: "",
         });
+        toastSuccess("Opportunity Created", "New prospect added to pipeline");
         fetchOpportunities();
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to create opportunity");
+        toastError(
+          "Failed to Create",
+          data.error?.message || data.error || "Failed to create opportunity",
+          data.correlation_id
+        );
       }
     } catch (err) {
       console.error("Error creating opportunity:", err);
+      toastError("Error", "An unexpected error occurred");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleStageChange = async (opportunityId: string, newStage: string) => {
+    // Clear any previous errors
+    setStageError(null);
+
     // If moving to closed stages, require additional info
     if (newStage === "Closed Lost") {
       setStageChangeData({
@@ -149,19 +163,33 @@ export default function PipelinePage() {
         nextStep: "Closed",
         nextStepDueDate: new Date().toISOString().split("T")[0],
         lostReason: "",
+        outcome: "",
+      });
+      setShowStageModal(true);
+      return;
+    }
+
+    if (newStage === "Closed Won") {
+      setStageChangeData({
+        opportunityId,
+        newStage,
+        nextStep: "Onboarding",
+        nextStepDueDate: new Date().toISOString().split("T")[0],
+        lostReason: "",
+        outcome: "",
       });
       setShowStageModal(true);
       return;
     }
 
     if (newStage === "Quote Sent") {
-      // TODO: Check if quote exists
       setStageChangeData({
         opportunityId,
         newStage,
         nextStep: "Follow up on quote",
         nextStepDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         lostReason: "",
+        outcome: "",
       });
       setShowStageModal(true);
       return;
@@ -174,7 +202,6 @@ export default function PipelinePage() {
       "Proposal Sent": "Follow up on proposal",
       Negotiation: "Final negotiation meeting",
       "Verbal Commit": "Contract signing",
-      "Closed Won": "Onboarding",
     };
 
     setStageChangeData({
@@ -183,18 +210,26 @@ export default function PipelinePage() {
       nextStep: defaultNextSteps[newStage] || "Follow up",
       nextStepDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       lostReason: "",
+      outcome: "",
     });
     setShowStageModal(true);
   };
 
   const confirmStageChange = async () => {
+    setStageError(null);
+
     if (!stageChangeData.nextStep || !stageChangeData.nextStepDueDate) {
-      alert("Next step and due date are required");
+      setStageError("Next step and due date are required");
       return;
     }
 
     if (stageChangeData.newStage === "Closed Lost" && !stageChangeData.lostReason) {
-      alert("Lost reason is required");
+      setStageError("Lost reason is required for Closed Lost");
+      return;
+    }
+
+    if (stageChangeData.newStage === "Closed Won" && !stageChangeData.outcome) {
+      setStageError("Win reason is required for Closed Won");
       return;
     }
 
@@ -208,18 +243,39 @@ export default function PipelinePage() {
           next_step: stageChangeData.nextStep,
           next_step_due_date: stageChangeData.nextStepDueDate,
           lost_reason: stageChangeData.lostReason || null,
+          outcome: stageChangeData.outcome || null,
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setShowStageModal(false);
+        toastSuccess("Stage Updated", `Moved to ${stageChangeData.newStage}`);
         fetchOpportunities();
+      } else if (res.status === 409) {
+        // Handle exit criteria violation
+        const missingFields = data.error?.details?.field_labels as Array<{ field: string; label: string }> | undefined;
+        if (missingFields && missingFields.length > 0) {
+          const fieldList = missingFields.map((f) => f.label).join(", ");
+          setStageError(`Missing required: ${fieldList}`);
+          toastError(
+            "Stage Change Blocked",
+            `Cannot move to ${stageChangeData.newStage}: missing ${fieldList}`,
+            data.correlation_id
+          );
+        } else {
+          setStageError(data.error?.message || "Stage transition blocked");
+          toastError("Stage Change Blocked", data.error?.message || "Exit criteria not met", data.correlation_id);
+        }
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to change stage");
+        const errorMessage = data.error?.message || data.error || "Failed to change stage";
+        setStageError(errorMessage);
+        toastError("Failed to Update Stage", errorMessage, data.correlation_id);
       }
     } catch (err) {
       console.error("Error changing stage:", err);
+      toastError("Error", "An unexpected error occurred");
     } finally {
       setSubmitting(false);
     }
@@ -538,7 +594,10 @@ export default function PipelinePage() {
       </Dialog>
 
       {/* Stage Change Modal */}
-      <Dialog open={showStageModal} onOpenChange={setShowStageModal}>
+      <Dialog open={showStageModal} onOpenChange={(open) => {
+        setShowStageModal(open);
+        if (!open) setStageError(null);
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Stage</DialogTitle>
@@ -548,6 +607,15 @@ export default function PipelinePage() {
               <p className="text-sm text-muted-foreground">Moving to:</p>
               <p className="font-medium text-foreground">{stageChangeData.newStage}</p>
             </div>
+
+            {/* Error Display */}
+            {stageError && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">{stageError}</p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Next Step *</label>
               <input
@@ -566,6 +634,18 @@ export default function PipelinePage() {
                 className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
+            {stageChangeData.newStage === "Closed Won" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Win Reason *</label>
+                <input
+                  type="text"
+                  value={stageChangeData.outcome}
+                  onChange={(e) => setStageChangeData({ ...stageChangeData, outcome: e.target.value })}
+                  placeholder="e.g., Best price, Strong relationship, Product fit"
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            )}
             {stageChangeData.newStage === "Closed Lost" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Lost Reason *</label>
@@ -578,9 +658,19 @@ export default function PipelinePage() {
                 />
               </div>
             )}
+            {stageChangeData.newStage === "Quote Sent" && (
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+                <p className="text-sm text-warning-foreground">
+                  Note: This stage requires a quote record attached to the opportunity.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <button onClick={() => setShowStageModal(false)} className="btn-outline" disabled={submitting}>
+            <button onClick={() => {
+              setShowStageModal(false);
+              setStageError(null);
+            }} className="btn-outline" disabled={submitting}>
               Cancel
             </button>
             <button onClick={confirmStageChange} className="btn-primary" disabled={submitting}>
