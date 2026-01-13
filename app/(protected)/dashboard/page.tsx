@@ -198,7 +198,7 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       // Helper function to safely execute Supabase queries
-      const safeQuery = async <T,>(queryFn: () => Promise<{ data: T | null; error: unknown; count?: number | null }>): Promise<{ data: T | null; count: number | null }> => {
+      const safeQuery = async <T,>(queryFn: () => PromiseLike<{ data: T | null; error: unknown; count?: number | null }>): Promise<{ data: T | null; count: number | null }> => {
         try {
           const result = await queryFn();
           if (result.error) {
