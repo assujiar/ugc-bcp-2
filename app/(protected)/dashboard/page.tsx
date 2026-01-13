@@ -196,53 +196,76 @@ export default function DashboardPage() {
   React.useEffect(() => {
     async function fetchDashboardData() {
       const supabase = createClient();
-      
+
+      // Helper function to safely execute Supabase queries
+      const safeQuery = async <T,>(queryFn: () => Promise<{ data: T | null; error: unknown; count?: number | null }>): Promise<{ data: T | null; count: number | null }> => {
+        try {
+          const result = await queryFn();
+          if (result.error) {
+            console.error("Supabase query error:", result.error);
+            return { data: null, count: null };
+          }
+          return { data: result.data, count: result.count ?? null };
+        } catch (e) {
+          console.error("Supabase query exception:", e);
+          return { data: null, count: null };
+        }
+      };
+
       try {
         const today = new Date();
         const todayStr = today.toISOString().split("T")[0];
-        
+
         const thirtyDaysAgo = new Date(today);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
-        
+
         const sixtyDaysAgo = new Date(today);
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().split("T")[0];
-        
+
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
         const startOfMonthStr = startOfMonth.toISOString().split("T")[0];
-        
+
         const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const startOfLastMonthStr = startOfLastMonth.toISOString().split("T")[0];
         const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
         const endOfLastMonthStr = endOfLastMonth.toISOString().split("T")[0];
 
         // === LEADS ===
-        const { count: totalLeads } = await supabase
-          .from("leads")
-          .select("*", { count: "exact", head: true })
-          .gte("lead_date", startOfMonthStr);
+        const { count: totalLeads } = await safeQuery(() =>
+          supabase
+            .from("leads")
+            .select("*", { count: "exact", head: true })
+            .gte("lead_date", startOfMonthStr)
+        );
 
-        const { count: leadsLastMonth } = await supabase
-          .from("leads")
-          .select("*", { count: "exact", head: true })
-          .gte("lead_date", startOfLastMonthStr)
-          .lte("lead_date", endOfLastMonthStr);
+        const { count: leadsLastMonth } = await safeQuery(() =>
+          supabase
+            .from("leads")
+            .select("*", { count: "exact", head: true })
+            .gte("lead_date", startOfLastMonthStr)
+            .lte("lead_date", endOfLastMonthStr)
+        );
 
-        const leadsChange = leadsLastMonth && leadsLastMonth > 0 
+        const leadsChange = leadsLastMonth && leadsLastMonth > 0
           ? ((totalLeads || 0) - leadsLastMonth) / leadsLastMonth * 100
           : 0;
 
-        const { count: newLeadsToday } = await supabase
-          .from("leads")
-          .select("*", { count: "exact", head: true })
-          .gte("lead_date", todayStr);
+        const { count: newLeadsToday } = await safeQuery(() =>
+          supabase
+            .from("leads")
+            .select("*", { count: "exact", head: true })
+            .gte("lead_date", todayStr)
+        );
 
         // === LEADS BY CHANNEL ===
-        const { data: leadsRaw } = await supabase
-          .from("leads")
-          .select("primary_channel")
-          .gte("lead_date", thirtyDaysAgoStr);
+        const { data: leadsRaw } = await safeQuery<LeadRow[]>(() =>
+          supabase
+            .from("leads")
+            .select("primary_channel")
+            .gte("lead_date", thirtyDaysAgoStr)
+        );
 
         const channelCounts = new Map<string, number>();
         ((leadsRaw || []) as LeadRow[]).forEach((lead) => {
@@ -265,66 +288,82 @@ export default function DashboardPage() {
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoStr = sevenDaysAgo.toISOString();
-        
+
         const fourteenDaysAgo = new Date(today);
         fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
         const fourteenDaysAgoStr = fourteenDaysAgo.toISOString();
 
-        const { count: activeInquiry } = await supabase
-          .from("tickets")
-          .select("*", { count: "exact", head: true })
-          .eq("ticket_type", "inquiry tariff")
-          .not("inquiry_status", "in", '("CLOSED","CLOSED LOST")');
+        const { count: activeInquiry } = await safeQuery(() =>
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .eq("ticket_type", "inquiry tariff")
+            .not("inquiry_status", "in", '("CLOSED","CLOSED LOST")')
+        );
 
-        const { count: activeNonInquiry } = await supabase
-          .from("tickets")
-          .select("*", { count: "exact", head: true })
-          .neq("ticket_type", "inquiry tariff")
-          .neq("ticket_status", "CLOSED");
+        const { count: activeNonInquiry } = await safeQuery(() =>
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .neq("ticket_type", "inquiry tariff")
+            .neq("ticket_status", "CLOSED")
+        );
 
         const activeTickets = (activeInquiry || 0) + (activeNonInquiry || 0);
 
-        const { count: ticketsLastWeek } = await supabase
-          .from("tickets")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", fourteenDaysAgoStr)
-          .lt("created_at", sevenDaysAgoStr);
+        const { count: ticketsLastWeek } = await safeQuery(() =>
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .gte("created_at", fourteenDaysAgoStr)
+            .lt("created_at", sevenDaysAgoStr)
+        );
 
-        const { count: ticketsThisWeek } = await supabase
-          .from("tickets")
-          .select("*", { count: "exact", head: true })
-          .gte("created_at", sevenDaysAgoStr);
+        const { count: ticketsThisWeek } = await safeQuery(() =>
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .gte("created_at", sevenDaysAgoStr)
+        );
 
         const ticketsChange = ticketsLastWeek && ticketsLastWeek > 0
           ? ((ticketsThisWeek || 0) - ticketsLastWeek) / ticketsLastWeek * 100
           : 0;
 
-        const { count: pendingRFQ } = await supabase
-          .from("tickets")
-          .select("*", { count: "exact", head: true })
-          .eq("ticket_type", "inquiry tariff")
-          .in("inquiry_status", ["OPEN", "WAITING RESPON", "WAITING CUSTOMER"]);
+        const { count: pendingRFQ } = await safeQuery(() =>
+          supabase
+            .from("tickets")
+            .select("*", { count: "exact", head: true })
+            .eq("ticket_type", "inquiry tariff")
+            .in("inquiry_status", ["OPEN", "WAITING RESPON", "WAITING CUSTOMER"])
+        );
 
         // === WIN RATE ===
-        const { count: closedWon } = await supabase
-          .from("prospects")
-          .select("*", { count: "exact", head: true })
-          .eq("current_stage", "Closed Won");
+        const { count: closedWon } = await safeQuery(() =>
+          supabase
+            .from("prospects")
+            .select("*", { count: "exact", head: true })
+            .eq("current_stage", "Closed Won")
+        );
 
-        const { count: closedLost } = await supabase
-          .from("prospects")
-          .select("*", { count: "exact", head: true })
-          .eq("current_stage", "Closed Lost");
+        const { count: closedLost } = await safeQuery(() =>
+          supabase
+            .from("prospects")
+            .select("*", { count: "exact", head: true })
+            .eq("current_stage", "Closed Lost")
+        );
 
         const totalClosed = (closedWon || 0) + (closedLost || 0);
         const winRate = totalClosed > 0 ? (closedWon || 0) / totalClosed * 100 : 0;
 
         // === RESPONSE TIME ===
-        const { data: responseData } = await supabase
-          .from("v_ticket_first_response_median_daily")
-          .select("median_first_response_minutes")
-          .gte("day", thirtyDaysAgoStr)
-          .not("median_first_response_minutes", "is", null);
+        const { data: responseData } = await safeQuery<ResponseTimeRow[]>(() =>
+          supabase
+            .from("v_ticket_first_response_median_daily")
+            .select("median_first_response_minutes")
+            .gte("day", thirtyDaysAgoStr)
+            .not("median_first_response_minutes", "is", null)
+        );
 
         const responseRows = (responseData || []) as ResponseTimeRow[];
         const avgResponseMinutes = responseRows.length > 0
@@ -332,12 +371,14 @@ export default function DashboardPage() {
           : 0;
         const responseTimeHours = avgResponseMinutes / 60;
 
-        const { data: prevResponseData } = await supabase
-          .from("v_ticket_first_response_median_daily")
-          .select("median_first_response_minutes")
-          .gte("day", sixtyDaysAgoStr)
-          .lt("day", thirtyDaysAgoStr)
-          .not("median_first_response_minutes", "is", null);
+        const { data: prevResponseData } = await safeQuery<ResponseTimeRow[]>(() =>
+          supabase
+            .from("v_ticket_first_response_median_daily")
+            .select("median_first_response_minutes")
+            .gte("day", sixtyDaysAgoStr)
+            .lt("day", thirtyDaysAgoStr)
+            .not("median_first_response_minutes", "is", null)
+        );
 
         const prevResponseRows = (prevResponseData || []) as ResponseTimeRow[];
         const prevAvgResponseMinutes = prevResponseRows.length > 0
@@ -349,20 +390,24 @@ export default function DashboardPage() {
           : 0;
 
         // === REVENUE ===
-        const { data: revenueDataRaw } = await supabase
-          .from("invoices")
-          .select("invoice_amount")
-          .gte("invoice_date", startOfMonthStr);
-        
+        const { data: revenueDataRaw } = await safeQuery<InvoiceRow[]>(() =>
+          supabase
+            .from("invoices")
+            .select("invoice_amount")
+            .gte("invoice_date", startOfMonthStr)
+        );
+
         const revenueRows = (revenueDataRaw || []) as InvoiceRow[];
         const revenueMTD = revenueRows.reduce((sum, inv) => sum + (Number(inv.invoice_amount) || 0), 0);
 
-        const { data: lastMonthRevenueRaw } = await supabase
-          .from("invoices")
-          .select("invoice_amount")
-          .gte("invoice_date", startOfLastMonthStr)
-          .lte("invoice_date", endOfLastMonthStr);
-        
+        const { data: lastMonthRevenueRaw } = await safeQuery<InvoiceRow[]>(() =>
+          supabase
+            .from("invoices")
+            .select("invoice_amount")
+            .gte("invoice_date", startOfLastMonthStr)
+            .lte("invoice_date", endOfLastMonthStr)
+        );
+
         const lastMonthRows = (lastMonthRevenueRaw || []) as InvoiceRow[];
         const lastMonthRevenue = lastMonthRows.reduce((sum, inv) => sum + (Number(inv.invoice_amount) || 0), 0);
 
@@ -371,39 +416,49 @@ export default function DashboardPage() {
           : 0;
 
         // === DSO ===
-        const { data: dsoDataRaw } = await supabase
-          .from("v_dso_rolling_30")
-          .select("dso_days_rolling_30")
-          .single();
+        const { data: dsoDataRaw } = await safeQuery<DsoRow>(() =>
+          supabase
+            .from("v_dso_rolling_30")
+            .select("dso_days_rolling_30")
+            .single()
+        );
 
         const dsoData = dsoDataRaw as DsoRow | null;
         const dsoDays = Math.round(Number(dsoData?.dso_days_rolling_30) || 0);
 
         // === OVERDUE INVOICES ===
-        const { count: overdueInvoices } = await supabase
-          .from("v_invoice_outstanding")
-          .select("*", { count: "exact", head: true })
-          .eq("is_overdue", true);
+        const { count: overdueInvoices } = await safeQuery(() =>
+          supabase
+            .from("v_invoice_outstanding")
+            .select("*", { count: "exact", head: true })
+            .eq("is_overdue", true)
+        );
 
         // === ACTIVE CUSTOMERS ===
-        const { count: activeCustomers } = await supabase
-          .from("customers")
-          .select("*", { count: "exact", head: true });
+        const { count: activeCustomers } = await safeQuery(() =>
+          supabase
+            .from("customers")
+            .select("*", { count: "exact", head: true })
+        );
 
         // === RECENT ACTIVITIES ===
-        const { data: recentLeadsRaw } = await supabase
-          .from("leads")
-          .select("lead_id, company_name, primary_channel, status, created_at")
-          .order("created_at", { ascending: false })
-          .limit(3);
+        const { data: recentLeadsRaw } = await safeQuery<RecentLeadRow[]>(() =>
+          supabase
+            .from("leads")
+            .select("lead_id, company_name, primary_channel, status, created_at")
+            .order("created_at", { ascending: false })
+            .limit(3)
+        );
 
         const recentLeads = (recentLeadsRaw || []) as RecentLeadRow[];
 
-        const { data: recentTicketsRaw } = await supabase
-          .from("tickets")
-          .select("ticket_id, subject, ticket_type, inquiry_status, ticket_status, created_at")
-          .order("created_at", { ascending: false })
-          .limit(3);
+        const { data: recentTicketsRaw } = await safeQuery<RecentTicketRow[]>(() =>
+          supabase
+            .from("tickets")
+            .select("ticket_id, subject, ticket_type, inquiry_status, ticket_status, created_at")
+            .order("created_at", { ascending: false })
+            .limit(3)
+        );
 
         const recentTickets = (recentTicketsRaw || []) as RecentTicketRow[];
 

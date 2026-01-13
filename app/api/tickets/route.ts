@@ -80,6 +80,18 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching tickets:", error);
+      // Return empty result if table doesn't exist (graceful degradation)
+      if (error.code === "42P01" || error.message?.includes("does not exist")) {
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -94,7 +106,16 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error in GET /api/tickets:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    // Return empty result on any error (graceful degradation)
+    return NextResponse.json({
+      data: [],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    });
   }
 }
 
