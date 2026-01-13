@@ -26,11 +26,9 @@ import {
 import {
   pageLabels,
   actionLabels,
-  fieldLabels,
-  emptyStateMessages,
-  modalTitles,
-  getActivityTypeLabel,
 } from "@/lib/terminology/labels";
+import { CompleteActivityModal } from "@/components/crm/complete-activity-modal";
+import { toastSuccess, toast } from "@/lib/hooks/use-toast";
 
 interface Activity {
   activity_id: string;
@@ -82,7 +80,9 @@ export default function ActivitiesPage() {
     scheduled_at: "",
   });
   const [submitting, setSubmitting] = React.useState(false);
-  const [completing, setCompleting] = React.useState<string | null>(null);
+  // Complete Activity Modal state
+  const [showCompleteModal, setShowCompleteModal] = React.useState(false);
+  const [selectedActivity, setSelectedActivity] = React.useState<Activity | null>(null);
 
   const fetchActivities = React.useCallback(async () => {
     setLoading(true);
@@ -147,28 +147,26 @@ export default function ActivitiesPage() {
     }
   };
 
-  const handleComplete = async (activityId: string) => {
-    setCompleting(activityId);
-    try {
-      const res = await fetch(`/api/crm/activities/${activityId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outcome: "Completed",
-          create_next: true,
-        }),
-      });
+  const handleOpenCompleteModal = (activity: Activity) => {
+    setSelectedActivity(activity);
+    setShowCompleteModal(true);
+  };
 
-      if (res.ok) {
-        fetchActivities();
+  const handleCompleteResult = (result: { success: boolean; action: "complete" | "cancel"; next_activity_id?: string }) => {
+    if (result.success) {
+      const actionText = result.action === "complete" ? "completed" : "cancelled";
+
+      if (result.next_activity_id) {
+        toast({
+          variant: "success",
+          title: "Activity Completed",
+          description: `Activity ${actionText}. Follow-up activity created.`,
+        });
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to complete activity");
+        toastSuccess("Success", `Activity ${actionText} successfully`);
       }
-    } catch (err) {
-      console.error("Error completing activity:", err);
-    } finally {
-      setCompleting(null);
+
+      fetchActivities();
     }
   };
 
@@ -399,18 +397,11 @@ export default function ActivitiesPage() {
                       <td className="px-6 py-4">
                         {activity.status === "Planned" && (
                           <button
-                            onClick={() => handleComplete(activity.activity_id)}
-                            disabled={completing === activity.activity_id}
+                            onClick={() => handleOpenCompleteModal(activity)}
                             className="btn-ghost h-8 px-3 text-sm"
                           >
-                            {completing === activity.activity_id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Complete
-                              </>
-                            )}
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Complete
                           </button>
                         )}
                       </td>
@@ -462,15 +453,10 @@ export default function ActivitiesPage() {
                           </span>
                           {activity.status === "Planned" && (
                             <button
-                              onClick={() => handleComplete(activity.activity_id)}
-                              disabled={completing === activity.activity_id}
+                              onClick={() => handleOpenCompleteModal(activity)}
                               className="btn-ghost h-7 px-2 text-xs"
                             >
-                              {completing === activity.activity_id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-3 w-3" />
-                              )}
+                              <CheckCircle className="h-3 w-3" />
                             </button>
                           )}
                         </div>
@@ -539,6 +525,14 @@ export default function ActivitiesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Complete Activity Modal */}
+      <CompleteActivityModal
+        open={showCompleteModal}
+        onOpenChange={setShowCompleteModal}
+        activity={selectedActivity}
+        onComplete={handleCompleteResult}
+      />
     </div>
   );
 }

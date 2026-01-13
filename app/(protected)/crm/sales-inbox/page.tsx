@@ -26,11 +26,11 @@ import {
   actionLabels,
   fieldLabels,
   emptyStateMessages,
-  toastMessages,
 } from "@/lib/terminology/labels";
 import { fetchJson, isSuccess } from "@/lib/api/fetchJson";
 import { toastSuccess, toastError, toast } from "@/lib/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { CompleteActivityModal } from "@/components/crm/complete-activity-modal";
 
 interface Activity {
   activity_id: string;
@@ -84,8 +84,10 @@ export default function SalesInboxPage() {
   const [myLeads, setMyLeads] = React.useState<MyLead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [claiming, setClaiming] = React.useState<string | null>(null);
-  const [completing, setCompleting] = React.useState<string | null>(null);
   const [converting, setConverting] = React.useState<string | null>(null);
+  // Complete Activity Modal state
+  const [showCompleteModal, setShowCompleteModal] = React.useState(false);
+  const [selectedActivity, setSelectedActivity] = React.useState<Activity | null>(null);
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -229,28 +231,35 @@ export default function SalesInboxPage() {
     }
   };
 
-  const handleCompleteActivity = async (activityId: string) => {
-    setCompleting(activityId);
-    try {
-      const res = await fetch(`/api/crm/activities/${activityId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outcome: "Completed",
-          create_next: true,
-        }),
-      });
+  const handleOpenCompleteModal = (activity: Activity) => {
+    setSelectedActivity(activity);
+    setShowCompleteModal(true);
+  };
 
-      if (res.ok) {
-        fetchData();
+  const handleCompleteResult = (result: { success: boolean; action: "complete" | "cancel"; next_activity_id?: string }) => {
+    if (result.success) {
+      const actionText = result.action === "complete" ? "completed" : "cancelled";
+
+      if (result.next_activity_id) {
+        toast({
+          variant: "success",
+          title: "Activity Completed",
+          description: `Activity ${actionText}. Follow-up activity created.`,
+          action: (
+            <ToastAction
+              altText="View Activity"
+              onClick={() => router.push(`/crm/activities`)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View
+            </ToastAction>
+          ),
+        });
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to complete activity");
+        toastSuccess("Success", `Activity ${actionText} successfully`);
       }
-    } catch (err) {
-      console.error("Error completing activity:", err);
-    } finally {
-      setCompleting(null);
+
+      fetchData();
     }
   };
 
@@ -397,18 +406,11 @@ export default function SalesInboxPage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => handleCompleteActivity(activity.activity_id)}
-                          disabled={completing === activity.activity_id}
+                          onClick={() => handleOpenCompleteModal(activity)}
                           className="btn-ghost h-8 px-3 text-sm"
                         >
-                          {completing === activity.activity_id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Done
-                            </>
-                          )}
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Complete
                         </button>
                       </div>
                     </div>
@@ -559,6 +561,14 @@ export default function SalesInboxPage() {
           </div>
         )}
       </div>
+
+      {/* Complete Activity Modal */}
+      <CompleteActivityModal
+        open={showCompleteModal}
+        onOpenChange={setShowCompleteModal}
+        activity={selectedActivity}
+        onComplete={handleCompleteResult}
+      />
     </div>
   );
 }
