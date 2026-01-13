@@ -13,6 +13,9 @@ import {
   Phone,
   Mail,
   Loader2,
+  RefreshCcw,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -46,8 +49,17 @@ interface Lead {
   triage_status: string;
   sla_deadline: string | null;
   created_at: string;
+  updated_at?: string;
   notes: string | null;
+  disqualified_reason?: string | null;
 }
+
+// Tab definitions for different lead views
+const LEAD_TABS = [
+  { id: "inbox", label: "Inbox", icon: ListTodo, view: "inbox" },
+  { id: "nurture", label: "Nurture", icon: RefreshCcw, view: "nurture" },
+  { id: "disqualified", label: "Disqualified", icon: Archive, view: "disqualified" },
+];
 
 const TRIAGE_ACTIONS = [
   { value: "Qualified", label: "Qualify", icon: CheckCircle, color: "text-success" },
@@ -56,7 +68,10 @@ const TRIAGE_ACTIONS = [
 ];
 
 export default function LeadInboxPage() {
+  const [activeTab, setActiveTab] = React.useState("inbox");
   const [leads, setLeads] = React.useState<Lead[]>([]);
+  const [nurtureLeads, setNurtureLeads] = React.useState<Lead[]>([]);
+  const [disqualifiedLeads, setDisqualifiedLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
@@ -67,16 +82,36 @@ export default function LeadInboxPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [handingOver, setHandingOver] = React.useState(false);
 
+  // Fetch leads based on active tab
   const fetchLeads = React.useCallback(async () => {
     setLoading(true);
-    const result = await fetchJson<Lead[]>("/api/crm/leads", {
-      params: { view: "inbox", pageSize: 100 },
-      showErrorToast: true,
-      errorMessage: toastMessages.errorLoading,
-    });
-    if (isSuccess(result)) {
-      setLeads(result.data || []);
+
+    // Fetch all three views in parallel
+    const [inboxResult, nurtureResult, disqualifiedResult] = await Promise.all([
+      fetchJson<Lead[]>("/api/crm/leads", {
+        params: { view: "inbox", pageSize: 100 },
+        showErrorToast: false,
+      }),
+      fetchJson<Lead[]>("/api/crm/leads", {
+        params: { view: "nurture", pageSize: 100 },
+        showErrorToast: false,
+      }),
+      fetchJson<Lead[]>("/api/crm/leads", {
+        params: { view: "disqualified", pageSize: 100 },
+        showErrorToast: false,
+      }),
+    ]);
+
+    if (isSuccess(inboxResult)) {
+      setLeads(inboxResult.data || []);
     }
+    if (isSuccess(nurtureResult)) {
+      setNurtureLeads(nurtureResult.data || []);
+    }
+    if (isSuccess(disqualifiedResult)) {
+      setDisqualifiedLeads(disqualifiedResult.data || []);
+    }
+
     setLoading(false);
   }, []);
 
@@ -139,16 +174,6 @@ export default function LeadInboxPage() {
     setHandingOver(false);
   };
 
-  const filteredLeads = leads.filter((l) => {
-    if (!search) return true;
-    const searchLower = search.toLowerCase();
-    return (
-      l.company_name.toLowerCase().includes(searchLower) ||
-      l.pic_name.toLowerCase().includes(searchLower) ||
-      l.email.toLowerCase().includes(searchLower)
-    );
-  });
-
   const isSlaBreach = (deadline: string | null) => {
     if (!deadline) return false;
     return new Date(deadline) < new Date();
@@ -166,14 +191,58 @@ export default function LeadInboxPage() {
     new: leads.filter((l) => l.triage_status === "New").length,
     inReview: leads.filter((l) => l.triage_status === "In Review").length,
     slaBreached: leads.filter((l) => isSlaBreach(l.sla_deadline)).length,
+    nurture: nurtureLeads.length,
+    disqualified: disqualifiedLeads.length,
+  };
+
+  // Get current leads based on active tab
+  const getCurrentLeads = () => {
+    switch (activeTab) {
+      case "nurture":
+        return nurtureLeads;
+      case "disqualified":
+        return disqualifiedLeads;
+      default:
+        return leads;
+    }
+  };
+
+  const currentLeads = getCurrentLeads();
+  const filteredLeads = currentLeads.filter((l) => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      l.company_name.toLowerCase().includes(searchLower) ||
+      l.pic_name.toLowerCase().includes(searchLower) ||
+      l.email.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Handle re-triaging a nurture or disqualified lead
+  const handleReTriage = async (lead: Lead, newStatus: string) => {
+    setSubmitting(true);
+    const result = await fetchJson(`/api/crm/leads/${lead.lead_id}/triage`, {
+      method: "PATCH",
+      body: {
+        triage_status: newStatus,
+        notes: `Re-triaged from ${lead.triage_status}`,
+      },
+      successMessage: `Lead moved to ${newStatus}`,
+      showSuccessToast: true,
+    });
+
+    if (isSuccess(result)) {
+      fetchLeads();
+    }
+    setSubmitting(false);
   };
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 skeleton" />
-        <div className="grid grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 skeleton rounded-xl" />
           ))}
         </div>
@@ -193,7 +262,7 @@ export default function LeadInboxPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <ListTodo className="h-6 w-6 text-primary" />
@@ -213,6 +282,15 @@ export default function LeadInboxPage() {
           </div>
         </div>
         <div className="card flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10">
+            <RefreshCcw className="h-6 w-6 text-secondary" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground">{stats.nurture}</p>
+            <p className="text-sm text-muted-foreground">Nurture</p>
+          </div>
+        </div>
+        <div className="card flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
             <AlertTriangle className="h-6 w-6 text-destructive" />
           </div>
@@ -221,6 +299,35 @@ export default function LeadInboxPage() {
             <p className="text-sm text-muted-foreground">{fieldLabels.responseSla} {fieldLabels.pastDue}</p>
           </div>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
+        {LEAD_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+              activeTab === tab.id
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+            <span className={cn(
+              "ml-1 px-1.5 py-0.5 text-xs rounded-full",
+              activeTab === tab.id
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground"
+            )}>
+              {tab.id === "inbox" ? leads.length :
+               tab.id === "nurture" ? nurtureLeads.length :
+               disqualifiedLeads.length}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Search */}
@@ -303,29 +410,68 @@ export default function LeadInboxPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedLead(lead);
-                          setShowTriageModal(true);
-                        }}
-                        className="btn-ghost h-8 px-3 text-sm"
-                      >
-                        {actionLabels.triageLead}
-                      </button>
-                      {lead.triage_status === "Qualified" && (
-                        <button
-                          onClick={() => handleHandover(lead)}
-                          disabled={handingOver}
-                          className="btn-primary h-8 px-3 text-sm"
-                        >
-                          {handingOver ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <ArrowRight className="h-4 w-4 mr-1" />
-                              {actionLabels.sendToSalesPool}
-                            </>
+                      {/* Inbox actions */}
+                      {activeTab === "inbox" && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setShowTriageModal(true);
+                            }}
+                            className="btn-ghost h-8 px-3 text-sm"
+                          >
+                            {actionLabels.triageLead}
+                          </button>
+                          {lead.triage_status === "Qualified" && (
+                            <button
+                              onClick={() => handleHandover(lead)}
+                              disabled={handingOver}
+                              className="btn-primary h-8 px-3 text-sm"
+                            >
+                              {handingOver ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <ArrowRight className="h-4 w-4 mr-1" />
+                                  {actionLabels.sendToSalesPool}
+                                </>
+                              )}
+                            </button>
                           )}
+                        </>
+                      )}
+                      {/* Nurture actions - Re-qualify or Disqualify */}
+                      {activeTab === "nurture" && (
+                        <>
+                          <button
+                            onClick={() => handleReTriage(lead, "Qualified")}
+                            disabled={submitting}
+                            className="btn-primary h-8 px-3 text-sm"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Re-Qualify
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setTriageAction("Disqualified");
+                              setShowTriageModal(true);
+                            }}
+                            className="btn-ghost h-8 px-3 text-sm text-destructive"
+                          >
+                            Disqualify
+                          </button>
+                        </>
+                      )}
+                      {/* Disqualified actions - Re-open */}
+                      {activeTab === "disqualified" && (
+                        <button
+                          onClick={() => handleReTriage(lead, "In Review")}
+                          disabled={submitting}
+                          className="btn-outline h-8 px-3 text-sm"
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Re-open
                         </button>
                       )}
                     </div>
