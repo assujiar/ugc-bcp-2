@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Building2,
   Phone,
@@ -17,8 +17,17 @@ import {
   ChevronRight,
   Plus,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { modalTitles } from "@/lib/terminology/labels";
 
 interface Account {
   account_id: string;
@@ -81,6 +90,7 @@ interface InvoiceSummary {
 
 export default function AccountDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const accountId = params.id as string;
 
   const [data, setData] = React.useState<{
@@ -97,6 +107,17 @@ export default function AccountDetailPage() {
     invoiceSummary: null,
   });
   const [loading, setLoading] = React.useState(true);
+  const [showAddContactModal, setShowAddContactModal] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [addContactData, setAddContactData] = React.useState({
+    first_name: "",
+    last_name: "",
+    title: "",
+    email: "",
+    phone: "",
+    is_primary: false,
+    is_decision_maker: false,
+  });
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -115,6 +136,54 @@ export default function AccountDetailPage() {
     };
     fetchData();
   }, [accountId]);
+
+  const handleAddContact = async () => {
+    if (!addContactData.first_name || !addContactData.phone) {
+      alert("First name and phone are required");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...addContactData,
+          account_id: accountId,
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        // Add new contact to local state
+        setData((prev) => ({
+          ...prev,
+          contacts: addContactData.is_primary
+            ? [result.contact, ...prev.contacts.map((c) => ({ ...c, is_primary: false }))]
+            : [...prev.contacts, result.contact],
+        }));
+        setShowAddContactModal(false);
+        setAddContactData({
+          first_name: "",
+          last_name: "",
+          title: "",
+          email: "",
+          phone: "",
+          is_primary: false,
+          is_decision_maker: false,
+        });
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Failed to create contact");
+      }
+    } catch (err) {
+      console.error("Error creating contact:", err);
+      alert("An error occurred while creating the contact");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const formatCurrency = (value: number | null | undefined) => {
     if (!value) return "-";
@@ -360,7 +429,7 @@ export default function AccountDetailPage() {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-foreground">Contacts</h2>
-              <button className="btn-ghost h-8 px-2">
+              <button onClick={() => setShowAddContactModal(true)} className="btn-ghost h-8 px-2">
                 <Plus className="h-4 w-4" />
               </button>
             </div>
@@ -428,6 +497,94 @@ export default function AccountDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Contact Modal */}
+      <Dialog open={showAddContactModal} onOpenChange={setShowAddContactModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{modalTitles.addContact}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">First Name *</label>
+                <input
+                  type="text"
+                  value={addContactData.first_name}
+                  onChange={(e) => setAddContactData({ ...addContactData, first_name: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Last Name</label>
+                <input
+                  type="text"
+                  value={addContactData.last_name}
+                  onChange={(e) => setAddContactData({ ...addContactData, last_name: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Job Title</label>
+              <input
+                type="text"
+                value={addContactData.title}
+                onChange={(e) => setAddContactData({ ...addContactData, title: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <input
+                  type="email"
+                  value={addContactData.email}
+                  onChange={(e) => setAddContactData({ ...addContactData, email: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Phone *</label>
+                <input
+                  type="tel"
+                  value={addContactData.phone}
+                  onChange={(e) => setAddContactData({ ...addContactData, phone: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-6 pt-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={addContactData.is_primary}
+                  onChange={(e) => setAddContactData({ ...addContactData, is_primary: e.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Primary Contact
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={addContactData.is_decision_maker}
+                  onChange={(e) => setAddContactData({ ...addContactData, is_decision_maker: e.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Decision Maker
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setShowAddContactModal(false)} className="btn-outline" disabled={submitting}>
+              Cancel
+            </button>
+            <button onClick={handleAddContact} className="btn-primary" disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Contact"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

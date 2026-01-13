@@ -234,6 +234,58 @@ This document provides a comprehensive QA checklist for the rebuilt CRM module. 
 
 ---
 
+## 11. CRM Module Remediation (January 2026)
+
+### P0 Fixes Applied
+
+#### Qualified Leads Vanishing Bug
+- [ ] Qualified leads are auto-handed over to Sales Pool (no manual step needed)
+- [ ] Leads never disappear after triage - they transition to "Handed Over" state
+- [ ] Sales Pool shows all unclaimed leads with "Handed Over" status
+
+#### Claimed Leads Visibility
+- [ ] My Leads tab appears in My Work Queue
+- [ ] Claimed but not converted leads are visible
+- [ ] Convert button allows conversion to opportunity
+
+#### Dead CTAs Fixed
+- [ ] Add Account button opens working modal (not dead link)
+- [ ] Add Contact button opens working modal in Account 360
+- [ ] Import page shows proper placeholder with RBAC
+
+### Guardrails Enforced (SSOT Requirement)
+
+Every active item must have: **Owner + Next Action + Due Date**
+
+#### Opportunities
+- [ ] Creating opportunity requires `next_step` (validated)
+- [ ] Creating opportunity requires `next_step_due_date` (validated)
+- [ ] Stage change requires `next_step` (validated)
+- [ ] Stage change requires `next_step_due_date` (validated)
+- [ ] Owner auto-assigned to creator
+
+#### Activities
+- [ ] Planned activities require `due_date` (validated)
+- [ ] Owner auto-assigned to creator
+
+#### Leads
+- [ ] Claimed leads have owner assigned
+- [ ] SLA deadline set on creation
+
+### Terminology Updates
+
+| Old Term | New Term |
+|----------|----------|
+| Lead Inbox | Lead Triage Queue |
+| Sales Inbox | My Work Queue |
+| Handover | Send to Sales Pool |
+| Overdue | Past Due |
+| SLA | Response SLA |
+| Customers | Accounts |
+| KPI | Performance |
+
+---
+
 ## Sign-off
 
 | Tester | Date | Environment | Status |

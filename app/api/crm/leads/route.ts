@@ -51,11 +51,31 @@ export async function GET(request: NextRequest) {
         created_by_profile:profiles!leads_created_by_fkey (full_name)
       `, { count: "exact" });
 
-    // Apply view filters
+    // Apply view filters (SSOT-aligned state→destination mapping)
     if (view === "inbox") {
+      // Lead Inbox (Triage Queue): Shows New & In Review leads
       query = query.in("triage_status", ["New", "In Review"]);
     } else if (view === "handover_pool") {
+      // Sales Pool: Handed over leads awaiting claim (sales_owner IS NULL)
       query = query.eq("triage_status", "Handed Over");
+      query = query.is("sales_owner_user_id", null);
+    } else if (view === "my_leads") {
+      // My Leads: Claimed leads assigned to current user (not yet converted)
+      query = query.eq("sales_owner_user_id", profile.user_id);
+      query = query.neq("status", "converted");
+    } else if (view === "nurture") {
+      // Nurture leads: available in Lead Inbox nurture tab
+      query = query.eq("triage_status", "Nurture");
+    } else if (view === "disqualified") {
+      // Disqualified leads: available for reference
+      query = query.eq("triage_status", "Disqualified");
+    } else if (view === "qualified") {
+      // Qualified but not yet handed over (edge case fallback)
+      query = query.eq("triage_status", "Qualified");
+      query = query.eq("handover_eligible", true);
+    } else if (view === "all") {
+      // All leads visible to user (for admin/reporting)
+      // No additional filter - RLS handles access
     }
 
     // Apply triage status filter
