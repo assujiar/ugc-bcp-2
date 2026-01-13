@@ -1,0 +1,4191 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public._archived_prospect_stage_history (
+  id bigint NOT NULL DEFAULT nextval('prospect_stage_history_id_seq'::regclass),
+  prospect_id text NOT NULL,
+  from_stage USER-DEFINED,
+  to_stage USER-DEFINED NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT _archived_prospect_stage_history_pkey PRIMARY KEY (id),
+  CONSTRAINT prospect_stage_history_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public._archived_prospects(prospect_id),
+  CONSTRAINT prospect_stage_history_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public._archived_prospects (
+  prospect_id text NOT NULL,
+  customer_id text NOT NULL,
+  owner_user_id uuid NOT NULL,
+  current_stage USER-DEFINED NOT NULL DEFAULT 'Prospect Created'::prospect_stage,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT _archived_prospects_pkey PRIMARY KEY (prospect_id),
+  CONSTRAINT prospects_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT prospects_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public._archived_sales_activities (
+  activity_id bigint NOT NULL DEFAULT nextval('sales_activities_activity_id_seq'::regclass),
+  prospect_id text NOT NULL,
+  activity_type USER-DEFINED NOT NULL,
+  notes text NOT NULL,
+  evidence_photo_url text,
+  gps_lat numeric,
+  gps_lng numeric,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT _archived_sales_activities_pkey PRIMARY KEY (activity_id),
+  CONSTRAINT sales_activities_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public._archived_prospects(prospect_id),
+  CONSTRAINT sales_activities_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.accounts (
+  account_id text NOT NULL,
+  company_name text NOT NULL,
+  npwp text,
+  pic_name text NOT NULL,
+  pic_phone text NOT NULL,
+  pic_email text NOT NULL,
+  address text,
+  city text,
+  country text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  domain text,
+  industry text,
+  employee_count text,
+  annual_revenue numeric,
+  owner_user_id uuid,
+  parent_account_id text,
+  is_active boolean NOT NULL DEFAULT true,
+  tags ARRAY,
+  CONSTRAINT accounts_pkey PRIMARY KEY (account_id),
+  CONSTRAINT accounts_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.activities (
+  activity_id text NOT NULL,
+  activity_type USER-DEFINED NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'Planned'::activity_status,
+  subject text NOT NULL,
+  description text,
+  related_account_id text,
+  related_contact_id text,
+  related_opportunity_id text,
+  related_lead_id text,
+  related_target_id text,
+  scheduled_at timestamp with time zone,
+  due_date date,
+  completed_at timestamp with time zone,
+  cancelled_at timestamp with time zone,
+  owner_user_id uuid NOT NULL,
+  outcome text,
+  duration_minutes integer,
+  evidence_url text,
+  gps_lat numeric,
+  gps_lng numeric,
+  cadence_enrollment_id bigint,
+  cadence_step_number integer,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT activities_pkey PRIMARY KEY (activity_id),
+  CONSTRAINT activities_related_account_id_fkey FOREIGN KEY (related_account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT activities_related_contact_id_fkey FOREIGN KEY (related_contact_id) REFERENCES public.contacts(contact_id),
+  CONSTRAINT activities_related_opportunity_id_fkey FOREIGN KEY (related_opportunity_id) REFERENCES public.opportunities(opportunity_id),
+  CONSTRAINT activities_related_target_id_fkey FOREIGN KEY (related_target_id) REFERENCES public.prospecting_targets(target_id),
+  CONSTRAINT activities_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT activities_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.audit_logs (
+  id bigint NOT NULL DEFAULT nextval('audit_logs_id_seq'::regclass),
+  table_name text NOT NULL,
+  record_id text,
+  action text NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  before_data jsonb,
+  after_data jsonb,
+  ip_address inet,
+  user_agent text,
+  entity text,
+  entity_id text,
+  correlation_id uuid,
+  actor_user_id uuid,
+  metadata jsonb,
+  action_type USER-DEFINED,
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_logs_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT audit_logs_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.cadence_enrollments (
+  enrollment_id bigint NOT NULL DEFAULT nextval('cadence_enrollments_enrollment_id_seq'::regclass),
+  cadence_id integer NOT NULL,
+  account_id text,
+  contact_id text,
+  opportunity_id text,
+  target_id text,
+  current_step integer NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'Active'::text,
+  enrolled_by uuid NOT NULL,
+  enrolled_at timestamp with time zone NOT NULL DEFAULT now(),
+  completed_at timestamp with time zone,
+  stopped_at timestamp with time zone,
+  CONSTRAINT cadence_enrollments_pkey PRIMARY KEY (enrollment_id),
+  CONSTRAINT cadence_enrollments_cadence_id_fkey FOREIGN KEY (cadence_id) REFERENCES public.cadences(cadence_id),
+  CONSTRAINT cadence_enrollments_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT cadence_enrollments_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(contact_id),
+  CONSTRAINT cadence_enrollments_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(opportunity_id),
+  CONSTRAINT cadence_enrollments_target_id_fkey FOREIGN KEY (target_id) REFERENCES public.prospecting_targets(target_id),
+  CONSTRAINT cadence_enrollments_enrolled_by_fkey FOREIGN KEY (enrolled_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.cadence_steps (
+  step_id integer NOT NULL DEFAULT nextval('cadence_steps_step_id_seq'::regclass),
+  cadence_id integer NOT NULL,
+  step_number integer NOT NULL,
+  activity_type USER-DEFINED NOT NULL,
+  subject_template text NOT NULL,
+  description_template text,
+  delay_days integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT cadence_steps_pkey PRIMARY KEY (step_id),
+  CONSTRAINT cadence_steps_cadence_id_fkey FOREIGN KEY (cadence_id) REFERENCES public.cadences(cadence_id)
+);
+CREATE TABLE public.cadences (
+  cadence_id integer NOT NULL DEFAULT nextval('cadences_cadence_id_seq'::regclass),
+  name text NOT NULL,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  owner_user_id uuid,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT cadences_pkey PRIMARY KEY (cadence_id),
+  CONSTRAINT cadences_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT cadences_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.contacts (
+  contact_id text NOT NULL,
+  account_id text NOT NULL,
+  first_name text NOT NULL,
+  last_name text,
+  title text,
+  email text,
+  phone text,
+  mobile text,
+  is_primary boolean NOT NULL DEFAULT false,
+  is_decision_maker boolean NOT NULL DEFAULT false,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT contacts_pkey PRIMARY KEY (contact_id),
+  CONSTRAINT contacts_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT contacts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.crm_idempotency (
+  idempotency_key text NOT NULL,
+  operation text NOT NULL,
+  request_hash text,
+  response_data jsonb,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '24:00:00'::interval),
+  CONSTRAINT crm_idempotency_pkey PRIMARY KEY (idempotency_key),
+  CONSTRAINT crm_idempotency_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.crm_transition_logs (
+  id bigint NOT NULL DEFAULT nextval('crm_transition_logs_id_seq'::regclass),
+  correlation_id uuid DEFAULT gen_random_uuid(),
+  entity text NOT NULL,
+  entity_id text NOT NULL,
+  action USER-DEFINED NOT NULL,
+  action_label text,
+  from_state jsonb,
+  to_state jsonb,
+  changed_fields ARRAY,
+  actor_user_id uuid NOT NULL,
+  actor_role text,
+  actor_name text,
+  related_entity text,
+  related_entity_id text,
+  source_rpc text,
+  ip_address inet,
+  user_agent text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT crm_transition_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT crm_transition_logs_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.departments (
+  dept_code USER-DEFINED NOT NULL,
+  dept_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT departments_pkey PRIMARY KEY (dept_code)
+);
+CREATE TABLE public.id_sequences (
+  prefix text NOT NULL,
+  date_part text NOT NULL,
+  last_seq integer NOT NULL DEFAULT 0,
+  CONSTRAINT id_sequences_pkey PRIMARY KEY (prefix, date_part)
+);
+CREATE TABLE public.import_batches (
+  batch_id text NOT NULL,
+  source_name text NOT NULL,
+  file_hash text NOT NULL,
+  row_count integer NOT NULL DEFAULT 0,
+  inserted integer NOT NULL DEFAULT 0,
+  updated integer NOT NULL DEFAULT 0,
+  failed integer NOT NULL DEFAULT 0,
+  failed_rows jsonb DEFAULT '[]'::jsonb,
+  entity_type text NOT NULL DEFAULT 'prospecting_targets'::text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT import_batches_pkey PRIMARY KEY (batch_id),
+  CONSTRAINT import_batches_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.import_rows (
+  id bigint NOT NULL DEFAULT nextval('import_rows_id_seq'::regclass),
+  import_id bigint NOT NULL,
+  row_number integer NOT NULL,
+  row_data jsonb,
+  error_message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT import_rows_pkey PRIMARY KEY (id),
+  CONSTRAINT import_rows_import_id_fkey FOREIGN KEY (import_id) REFERENCES public.imports(import_id)
+);
+CREATE TABLE public.imports (
+  import_id bigint NOT NULL DEFAULT nextval('imports_import_id_seq'::regclass),
+  module text NOT NULL,
+  file_name text NOT NULL,
+  file_url text,
+  total_rows integer,
+  success_rows integer DEFAULT 0,
+  error_rows integer DEFAULT 0,
+  status USER-DEFINED NOT NULL DEFAULT 'UPLOADED'::import_status,
+  uploaded_by uuid NOT NULL,
+  uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
+  processed_at timestamp with time zone,
+  CONSTRAINT imports_pkey PRIMARY KEY (import_id),
+  CONSTRAINT imports_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.invoice_ledger (
+  ledger_id bigint NOT NULL DEFAULT nextval('invoice_ledger_ledger_id_seq'::regclass),
+  account_id text NOT NULL,
+  invoice_id text,
+  invoice_date date NOT NULL,
+  amount numeric NOT NULL,
+  currency text DEFAULT 'IDR'::text,
+  status text NOT NULL DEFAULT 'Outstanding'::text,
+  paid_amount numeric DEFAULT 0,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT invoice_ledger_pkey PRIMARY KEY (ledger_id),
+  CONSTRAINT invoice_ledger_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT invoice_ledger_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(invoice_id)
+);
+CREATE TABLE public.invoices (
+  invoice_id text NOT NULL,
+  account_id text NOT NULL,
+  invoice_date date NOT NULL,
+  due_date date NOT NULL,
+  invoice_amount numeric NOT NULL,
+  currency text NOT NULL DEFAULT 'IDR'::text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  status USER-DEFINED NOT NULL DEFAULT 'CREATED'::invoice_status,
+  CONSTRAINT invoices_pkey PRIMARY KEY (invoice_id),
+  CONSTRAINT invoices_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT invoices_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id)
+);
+CREATE TABLE public.kpi_actuals (
+  actual_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  metric_key text NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  value numeric NOT NULL DEFAULT 0,
+  user_id uuid NOT NULL,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kpi_actuals_pkey PRIMARY KEY (actual_id),
+  CONSTRAINT kpi_actuals_metric_key_fkey FOREIGN KEY (metric_key) REFERENCES public.kpi_metric_definitions(metric_key),
+  CONSTRAINT kpi_actuals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.kpi_metric_definitions (
+  metric_key text NOT NULL,
+  owner_role text NOT NULL,
+  unit text,
+  calc_method USER-DEFINED NOT NULL,
+  direction USER-DEFINED NOT NULL,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kpi_metric_definitions_pkey PRIMARY KEY (metric_key),
+  CONSTRAINT kpi_metric_definitions_owner_role_fkey FOREIGN KEY (owner_role) REFERENCES public.roles(role_name)
+);
+CREATE TABLE public.kpi_targets (
+  id bigint NOT NULL DEFAULT nextval('kpi_targets_id_seq'::regclass),
+  metric_key text NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  assignee_user_id uuid,
+  target_value numeric NOT NULL,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kpi_targets_pkey PRIMARY KEY (id),
+  CONSTRAINT kpi_targets_metric_key_fkey FOREIGN KEY (metric_key) REFERENCES public.kpi_metric_definitions(metric_key),
+  CONSTRAINT kpi_targets_assignee_user_id_fkey FOREIGN KEY (assignee_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT kpi_targets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.lead_handover_pool (
+  handover_id bigint NOT NULL DEFAULT nextval('lead_handover_pool_handover_id_seq'::regclass),
+  lead_id text NOT NULL UNIQUE,
+  handed_over_by uuid NOT NULL,
+  handed_over_at timestamp with time zone NOT NULL DEFAULT now(),
+  claimed_by uuid,
+  claimed_at timestamp with time zone,
+  notes text,
+  priority integer DEFAULT 0,
+  expires_at timestamp with time zone,
+  CONSTRAINT lead_handover_pool_pkey PRIMARY KEY (handover_id),
+  CONSTRAINT lead_handover_pool_handed_over_by_fkey FOREIGN KEY (handed_over_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT lead_handover_pool_claimed_by_fkey FOREIGN KEY (claimed_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.leads (
+  lead_id text NOT NULL,
+  lead_date date NOT NULL DEFAULT CURRENT_DATE,
+  company_name text NOT NULL,
+  pic_name text NOT NULL,
+  contact_phone text NOT NULL,
+  email text NOT NULL,
+  city_area text NOT NULL,
+  service_code text NOT NULL,
+  route text,
+  est_volume_value numeric,
+  est_volume_unit text,
+  timeline text,
+  sourced_by USER-DEFINED NOT NULL,
+  primary_channel USER-DEFINED NOT NULL,
+  campaign_name text,
+  notes text,
+  sales_owner_user_id uuid,
+  customer_id text,
+  prospect_id text,
+  status USER-DEFINED NOT NULL DEFAULT 'New'::lead_status,
+  next_step USER-DEFINED NOT NULL,
+  due_date date NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  triage_status USER-DEFINED DEFAULT 'New'::lead_triage_status,
+  handover_eligible boolean DEFAULT false,
+  handover_notes text,
+  dedupe_key text,
+  dedupe_suggestions jsonb,
+  sla_deadline timestamp with time zone,
+  qualified_at timestamp with time zone,
+  disqualified_at timestamp with time zone,
+  disqualified_reason text,
+  opportunity_id text,
+  CONSTRAINT leads_pkey PRIMARY KEY (lead_id),
+  CONSTRAINT leads_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT leads_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public._archived_prospects(prospect_id),
+  CONSTRAINT leads_service_code_fkey FOREIGN KEY (service_code) REFERENCES public.service_catalog(service_code),
+  CONSTRAINT leads_sales_owner_user_id_fkey FOREIGN KEY (sales_owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT leads_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT leads_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(opportunity_id)
+);
+CREATE TABLE public.marketing_activity_events (
+  id bigint NOT NULL DEFAULT nextval('marketing_activity_events_id_seq'::regclass),
+  activity_name text NOT NULL,
+  channel USER-DEFINED,
+  activity_date date NOT NULL,
+  quantity numeric NOT NULL,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketing_activity_events_pkey PRIMARY KEY (id),
+  CONSTRAINT marketing_activity_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.marketing_spend (
+  id bigint NOT NULL DEFAULT nextval('marketing_spend_id_seq'::regclass),
+  channel USER-DEFINED NOT NULL,
+  spend_date date NOT NULL,
+  amount numeric NOT NULL,
+  campaign_name text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketing_spend_pkey PRIMARY KEY (id),
+  CONSTRAINT marketing_spend_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.opportunities (
+  opportunity_id text NOT NULL,
+  account_id text NOT NULL,
+  name text NOT NULL,
+  stage USER-DEFINED NOT NULL DEFAULT 'Prospecting'::opportunity_stage,
+  owner_user_id uuid NOT NULL,
+  estimated_value numeric,
+  currency text DEFAULT 'IDR'::text,
+  probability integer CHECK (probability >= 0 AND probability <= 100),
+  expected_close_date date,
+  service_codes ARRAY,
+  route text,
+  next_step text NOT NULL,
+  next_step_due_date date NOT NULL,
+  source_lead_id text,
+  source_target_id text,
+  lost_reason text,
+  competitor text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  closed_at timestamp with time zone,
+  outcome text,
+  CONSTRAINT opportunities_pkey PRIMARY KEY (opportunity_id),
+  CONSTRAINT opportunities_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT opportunities_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT opportunities_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.opportunity_stage_history (
+  id bigint NOT NULL DEFAULT nextval('opportunity_stage_history_id_seq'::regclass),
+  opportunity_id text NOT NULL,
+  from_stage USER-DEFINED,
+  to_stage USER-DEFINED NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  notes text,
+  CONSTRAINT opportunity_stage_history_pkey PRIMARY KEY (id),
+  CONSTRAINT opportunity_stage_history_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(opportunity_id),
+  CONSTRAINT opportunity_stage_history_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.payments (
+  payment_id bigint NOT NULL DEFAULT nextval('payments_payment_id_seq'::regclass),
+  invoice_id text NOT NULL,
+  payment_date date NOT NULL,
+  amount numeric NOT NULL,
+  payment_method text,
+  reference_no text,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (payment_id),
+  CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(invoice_id),
+  CONSTRAINT payments_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.profiles (
+  user_id uuid NOT NULL,
+  user_code text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  role_name text NOT NULL,
+  dept_code USER-DEFINED NOT NULL,
+  manager_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_role_name_fkey FOREIGN KEY (role_name) REFERENCES public.roles(role_name),
+  CONSTRAINT profiles_dept_code_fkey FOREIGN KEY (dept_code) REFERENCES public.departments(dept_code),
+  CONSTRAINT profiles_manager_user_id_fkey FOREIGN KEY (manager_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.prospecting_targets (
+  target_id text NOT NULL,
+  company_name text NOT NULL,
+  domain text,
+  industry text,
+  contact_name text,
+  contact_email text,
+  contact_phone text,
+  linkedin_url text,
+  city text,
+  notes text,
+  owner_user_id uuid,
+  last_contacted_at timestamp with time zone,
+  next_outreach_at timestamp with time zone,
+  dedupe_key text NOT NULL UNIQUE,
+  converted_to_lead_id text,
+  converted_to_account_id text,
+  source text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  status USER-DEFINED NOT NULL DEFAULT 'new_target'::target_status,
+  drop_reason text,
+  dropped_at timestamp with time zone,
+  converted_at timestamp with time zone,
+  import_batch_id text,
+  CONSTRAINT prospecting_targets_pkey PRIMARY KEY (target_id),
+  CONSTRAINT prospecting_targets_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT prospecting_targets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT prospecting_targets_import_batch_id_fkey FOREIGN KEY (import_batch_id) REFERENCES public.import_batches(batch_id)
+);
+CREATE TABLE public.quotes (
+  quote_id text NOT NULL,
+  opportunity_id text NOT NULL,
+  account_id text NOT NULL,
+  version integer NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'Draft'::text,
+  valid_until date,
+  total_amount numeric,
+  currency text DEFAULT 'IDR'::text,
+  terms text,
+  notes text,
+  file_url text,
+  sent_at timestamp with time zone,
+  accepted_at timestamp with time zone,
+  rejected_at timestamp with time zone,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT quotes_pkey PRIMARY KEY (quote_id),
+  CONSTRAINT quotes_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(opportunity_id),
+  CONSTRAINT quotes_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT quotes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.roles (
+  role_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT roles_pkey PRIMARY KEY (role_name)
+);
+CREATE TABLE public.saved_views (
+  view_id bigint NOT NULL DEFAULT nextval('saved_views_view_id_seq'::regclass),
+  module text NOT NULL,
+  view_name text NOT NULL,
+  filter_json jsonb NOT NULL,
+  is_default boolean NOT NULL DEFAULT false,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT saved_views_pkey PRIMARY KEY (view_id),
+  CONSTRAINT saved_views_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.service_catalog (
+  service_code text NOT NULL,
+  service_name text NOT NULL,
+  owner_dept USER-DEFINED NOT NULL,
+  scope_group text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT service_catalog_pkey PRIMARY KEY (service_code),
+  CONSTRAINT service_catalog_owner_dept_fkey FOREIGN KEY (owner_dept) REFERENCES public.departments(dept_code)
+);
+CREATE TABLE public.shipment_profiles (
+  profile_id text NOT NULL,
+  account_id text NOT NULL,
+  opportunity_id text,
+  name text NOT NULL,
+  origin_address text,
+  origin_city text,
+  origin_country text DEFAULT 'Indonesia'::text,
+  destination_address text,
+  destination_city text,
+  destination_country text DEFAULT 'Indonesia'::text,
+  cargo_type text,
+  avg_weight numeric,
+  avg_dimensions text,
+  frequency text,
+  special_requirements text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT shipment_profiles_pkey PRIMARY KEY (profile_id),
+  CONSTRAINT shipment_profiles_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT shipment_profiles_opportunity_id_fkey FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(opportunity_id),
+  CONSTRAINT shipment_profiles_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.sla_events (
+  id bigint NOT NULL DEFAULT nextval('sla_events_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  event_type text NOT NULL,
+  event_at timestamp with time zone NOT NULL DEFAULT now(),
+  metadata jsonb,
+  CONSTRAINT sla_events_pkey PRIMARY KEY (id),
+  CONSTRAINT sla_events_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id)
+);
+CREATE TABLE public.target_status_transitions (
+  id integer NOT NULL DEFAULT nextval('target_status_transitions_id_seq'::regclass),
+  from_status USER-DEFINED NOT NULL,
+  to_status USER-DEFINED NOT NULL,
+  requires_reason boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT target_status_transitions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.ticket_attachments (
+  attachment_id bigint NOT NULL DEFAULT nextval('ticket_attachments_attachment_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  file_url text NOT NULL,
+  file_name text,
+  file_size bigint,
+  uploaded_by uuid NOT NULL,
+  uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_attachments_pkey PRIMARY KEY (attachment_id),
+  CONSTRAINT ticket_attachments_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id),
+  CONSTRAINT ticket_attachments_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.ticket_messages (
+  message_id bigint NOT NULL DEFAULT nextval('ticket_messages_message_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  message text NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_messages_pkey PRIMARY KEY (message_id),
+  CONSTRAINT ticket_messages_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id),
+  CONSTRAINT ticket_messages_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.tickets (
+  ticket_id text NOT NULL,
+  ticket_type USER-DEFINED NOT NULL,
+  inquiry_status USER-DEFINED,
+  ticket_status USER-DEFINED,
+  dept_target USER-DEFINED NOT NULL,
+  service_code text,
+  created_by uuid NOT NULL,
+  assigned_to uuid,
+  related_lead_id text,
+  related_account_id text,
+  subject text NOT NULL,
+  description text,
+  origin_address text,
+  origin_city text,
+  origin_country text,
+  destination_address text,
+  destination_city text,
+  destination_country text,
+  cargo_category text,
+  cargo_qty numeric,
+  cargo_dimensions text,
+  cargo_weight numeric,
+  scope_of_work text,
+  need_customer_masking boolean NOT NULL DEFAULT false,
+  close_reason text,
+  competitor_rate numeric,
+  customer_budget numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  closed_at timestamp with time zone,
+  CONSTRAINT tickets_pkey PRIMARY KEY (ticket_id),
+  CONSTRAINT tickets_service_code_fkey FOREIGN KEY (service_code) REFERENCES public.service_catalog(service_code),
+  CONSTRAINT tickets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(user_id),
+  CONSTRAINT tickets_related_lead_id_fkey FOREIGN KEY (related_lead_id) REFERENCES public.leads(lead_id),
+  CONSTRAINT tickets_related_account_id_fkey FOREIGN KEY (related_account_id) REFERENCES public.accounts(account_id)
+);
+
+
+Schema: auth
+
+email() — ambil klaim email dari context JWT.
+jwt() — kembalikan klaim JWT sebagai jsonb.
+role() — ambil klaim role dari JWT.
+uid() — ambil klaim sub (user id) dari JWT sebagai uuid.
+Schema: realtime
+
+apply_rls(wal jsonb, max_record_bytes integer DEFAULT 1048576) RETURNS SETOF realtime.wal_rls
+Memproses output wal2json, menerapkan RLS per-subscription, mengembalikan payload yang siap dibroadcast.
+broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text DEFAULT 'ROW') RETURNS void
+Helper trigger untuk membuat payload dan memanggil realtime.send.
+build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) RETURNS text
+Membangun SQL untuk prepared statement yang memeriksa keberadaan baris berdasarkan PK.
+"cast"(val text, type_ regtype) RETURNS jsonb
+Membantu convert nilai text ke jsonb dengan casting ke type yang diberikan.
+check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) RETURNS boolean
+Evaluasi operasi perbandingan (eq, neq, lt, lte, gt, gte, in) setelah cast.
+is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) RETURNS boolean
+Menentukan apakah record terlihat setelah menerapkan user-defined filters.
+list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) RETURNS SETOF realtime.wal_rls
+Ambil perubahan dari logical replication slot, panggil apply_rls dan kembalikan records yang harus dikirim.
+quote_wal2json(entity regclass) RETURNS text
+Utility untuk membangun daftar tabel untuk wal2json.
+send(payload jsonb, event text, topic text, private boolean DEFAULT true) RETURNS void
+Masukkan pesan ke realtime.messages (broadcast).
+subscription_check_filters() RETURNS trigger
+Trigger untuk memvalidasi filters pada subscription.
+to_regrole(role_name text) RETURNS regrole
+Cast teks ke regrole.
+topic() RETURNS text
+Baca setting lokal realtime.topic.
+Schema: storage
+
+add_prefixes(_bucket_id text, _name text) RETURNS void
+Tambah entri prefixes berdasarkan path.
+can_insert_object(bucketid text, name text, owner uuid, metadata jsonb) RETURNS void
+(Berisi insert uji dan exception untuk rollback) — tampak seperti helper test.
+delete_leaf_prefixes(bucket_ids text[], names text[]) RETURNS void
+Hapus prefix yang tidak mempunyai turunan/objek (bottom-up).
+delete_prefix(_bucket_id text, _name text) RETURNS boolean
+Hapus single prefix jika kosong.
+delete_prefix_hierarchy_trigger() RETURNS trigger
+Trigger untuk memanggil delete_prefix saat objek dihapus.
+enforce_bucket_name_length() RETURNS trigger
+Validasi panjang nama bucket (<=100).
+extension(name text) RETURNS text
+Ambil ekstensi file dari nama.
+filename(name text) RETURNS text
+Ambil nama file (last path segment).
+foldername(name text) RETURNS text[]
+Kembalikan array folder path (semua kecuali segmen terakhir).
+get_level(name text) RETURNS integer
+Hitung level berdasarkan jumlah segmen path.
+get_prefix(name text) RETURNS text
+Ambil parent path (prefix) langsung.
+get_prefixes(name text) RETURNS text[]
+Kembalikan semua prefix level untuk path.
+get_size_by_bucket() RETURNS TABLE(size bigint, bucket_id text)
+Hitung total size per bucket dari metadata.
+list_multipart_uploads_with_delimiter(...) RETURNS TABLE(key text, id text, created_at timestamptz)
+Listing multipart uploads dengan delimiter/pagination.
+list_objects_with_delimiter(...) RETURNS TABLE(name text, id uuid, metadata jsonb, updated_at timestamptz)
+Listing objects dengan delimiter/pagination.
+lock_top_prefixes(bucket_ids text[], names text[]) RETURNS void
+Ambil advisory locks per top-level prefix untuk mencegah deadlock.
+objects_delete_cleanup() RETURNS trigger
+Trigger cleanup ketika objects dihapus: panggil delete_leaf_prefixes.
+objects_insert_prefix_trigger() RETURNS trigger
+Trigger untuk menambahkan prefixes saat insert object.
+objects_update_cleanup() RETURNS trigger
+Trigger untuk menangani perubahan nama/object: buat prefix baru lalu prune prefix lama.
+objects_update_level_trigger() RETURNS trigger
+Set kolom level saat update name/bucket.
+objects_update_prefix_trigger() RETURNS trigger
+Update prefix saat object diganti nama; hapus prefix lama jika perlu, tambahkan prefix baru.
+operation() RETURNS text
+Baca setting local storage.operation.
+prefixes_delete_cleanup() RETURNS trigger
+Trigger cleanup ketika prefixes dihapus.
+prefixes_insert_trigger() RETURNS trigger
+Trigger untuk menambahkan higher-level prefixes ketika insert prefix.
+search(prefix text, bucketname text, ...) RETURNS TABLE(...)
+Wrapper: pilih strategi pencarian (optimised vs legacy) berdasarkan privilege.
+search_legacy_v1(...) RETURNS TABLE(...)
+Implementasi pencarian versi legacy (menggunakan objects dan path_tokens).
+search_v1_optimised(...) RETURNS TABLE(...)
+Implementasi pencarian yang mengandalkan table prefixes (lebih cepat bila bypass RLS).
+search_v2(...) RETURNS TABLE(...)
+Versi 2 dari search dengan pagination cursor dan ordering.
+update_updated_at_column() RETURNS trigger
+Trigger set updated_at = now().
+Schema: vault
+
+_crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea DEFAULT ..., nonce bytea DEFAULT NULL) RETURNS bytea
+C-language function dari extension supabase_vault (pgsodium) untuk dekripsi deterministik.
+_crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea DEFAULT ..., nonce bytea DEFAULT NULL) RETURNS bytea
+C-language encrypt helper.
+_crypto_aead_det_noncegen() RETURNS bytea
+Generate nonce native.
+create_secret(new_secret text, new_name text DEFAULT NULL, new_description text DEFAULT '', new_key_id uuid DEFAULT NULL) RETURNS uuid
+Insert secret dan enkripsi field secret, SECURITY DEFINER.
+update_secret(secret_id uuid, new_secret text DEFAULT NULL, new_name text DEFAULT NULL, new_description text DEFAULT NULL, new_key_id uuid DEFAULT NULL) RETURNS void
+Update secret terenkripsi, SECURITY DEFINER._
+
+
+Daftar trigger di project ini
+Berikut semua trigger user-defined di schema public, auth, storage, realtime, dan vault yang ditemukan. Saya menyertakan schema, nama trigger, tabel target, dan definisi singkat (pg_get_triggerdef).
+
+Schema: public
+
+trg_audit_prospects — table: _archived_prospects
+Definition: CREATE TRIGGER trg_audit_prospects AFTER INSERT OR DELETE OR UPDATE ON _archived_prospects FOR EACH ROW EXECUTE FUNCTION audit_row_change()
+accounts_id_before_insert — table: accounts
+Definition: CREATE TRIGGER accounts_id_before_insert BEFORE INSERT ON accounts FOR EACH ROW EXECUTE FUNCTION trg_account_id()
+trg_accounts_audit — table: accounts
+Definition: CREATE TRIGGER trg_accounts_audit AFTER INSERT OR DELETE OR UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION trg_audit_accounts_transitions()
+activities_id_before_insert — table: activities
+Definition: CREATE TRIGGER activities_id_before_insert BEFORE INSERT ON activities FOR EACH ROW EXECUTE FUNCTION trg_activity_id()
+trg_activities_audit — table: activities
+Definition: CREATE TRIGGER trg_activities_audit AFTER INSERT OR DELETE OR UPDATE ON activities FOR EACH ROW EXECUTE FUNCTION trg_audit_activities_transitions()
+trg_enforce_activity_restrictions — table: activities
+Definition: CREATE TRIGGER trg_enforce_activity_restrictions BEFORE UPDATE ON activities FOR EACH ROW EXECUTE FUNCTION enforce_activity_restrictions()
+contacts_id_before_insert — table: contacts
+Definition: CREATE TRIGGER contacts_id_before_insert BEFORE INSERT ON contacts FOR EACH ROW EXECUTE FUNCTION trg_contact_id()
+trg_contacts_audit — table: contacts
+Definition: CREATE TRIGGER trg_contacts_audit AFTER INSERT OR DELETE OR UPDATE ON contacts FOR EACH ROW EXECUTE FUNCTION trg_audit_contacts_transitions()
+invoices_id_before_insert — table: invoices
+Definition: CREATE TRIGGER invoices_id_before_insert BEFORE INSERT ON invoices FOR EACH ROW EXECUTE FUNCTION trg_invoice_id()
+trg_invoices_audit — table: invoices
+Definition: CREATE TRIGGER trg_invoices_audit AFTER INSERT OR DELETE OR UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION trg_audit_invoices_simple()
+trg_kpi_actuals_updated_at — table: kpi_actuals
+Definition: CREATE TRIGGER trg_kpi_actuals_updated_at BEFORE UPDATE ON kpi_actuals FOR EACH ROW EXECUTE FUNCTION trg_kpi_actuals_updated_at()
+trg_kpi_targets_audit — table: kpi_targets
+Definition: CREATE TRIGGER trg_kpi_targets_audit AFTER INSERT OR DELETE OR UPDATE ON kpi_targets FOR EACH ROW EXECUTE FUNCTION trg_audit_kpi_targets_simple()
+trg_handover_pool_audit — table: lead_handover_pool
+Definition: CREATE TRIGGER trg_handover_pool_audit AFTER INSERT OR UPDATE ON lead_handover_pool FOR EACH ROW EXECUTE FUNCTION trg_audit_handover_pool_transitions()
+leads_id_before_insert — table: leads
+Definition: CREATE TRIGGER leads_id_before_insert BEFORE INSERT ON leads FOR EACH ROW EXECUTE FUNCTION trg_lead_id()
+trg_enforce_lead_restrictions — table: leads
+Definition: CREATE TRIGGER trg_enforce_lead_restrictions BEFORE UPDATE ON leads FOR EACH ROW EXECUTE FUNCTION enforce_lead_column_restrictions()
+trg_leads_audit — table: leads
+Definition: CREATE TRIGGER trg_leads_audit AFTER INSERT OR DELETE OR UPDATE ON leads FOR EACH ROW EXECUTE FUNCTION trg_audit_leads_transitions()
+opportunities_id_before_insert — table: opportunities
+Definition: CREATE TRIGGER opportunities_id_before_insert BEFORE INSERT ON opportunities FOR EACH ROW EXECUTE FUNCTION trg_opportunity_id()
+opportunities_stage_change — table: opportunities
+Definition: CREATE TRIGGER opportunities_stage_change BEFORE UPDATE ON opportunities FOR EACH ROW EXECUTE FUNCTION trg_opportunity_stage_change()
+trg_enforce_opportunity_restrictions — table: opportunities
+Definition: CREATE TRIGGER trg_enforce_opportunity_restrictions BEFORE UPDATE ON opportunities FOR EACH ROW EXECUTE FUNCTION enforce_opportunity_restrictions()
+trg_opportunities_audit — table: opportunities
+Definition: CREATE TRIGGER trg_opportunities_audit AFTER INSERT OR DELETE OR UPDATE ON opportunities FOR EACH ROW EXECUTE FUNCTION trg_audit_opportunities_transitions()
+targets_id_before_insert — table: prospecting_targets
+Definition: CREATE TRIGGER targets_id_before_insert BEFORE INSERT ON prospecting_targets FOR EACH ROW EXECUTE FUNCTION trg_target_id()
+trg_targets_audit — table: prospecting_targets
+Definition: CREATE TRIGGER trg_targets_audit AFTER INSERT OR DELETE OR UPDATE ON prospecting_targets FOR EACH ROW EXECUTE FUNCTION trg_audit_targets_transitions()
+quotes_id_before_insert — table: quotes
+Definition: CREATE TRIGGER quotes_id_before_insert BEFORE INSERT ON quotes FOR EACH ROW EXECUTE FUNCTION trg_quote_id()
+shipment_profiles_id_before_insert — table: shipment_profiles
+Definition: CREATE TRIGGER shipment_profiles_id_before_insert BEFORE INSERT ON shipment_profiles FOR EACH ROW EXECUTE FUNCTION trg_shipment_profile_id()
+trg_sla_first_response — table: ticket_messages
+Definition: CREATE TRIGGER trg_sla_first_response AFTER INSERT ON ticket_messages FOR EACH ROW EXECUTE FUNCTION trg_sla_first_response()
+tickets_id_before_insert — table: tickets
+Definition: CREATE TRIGGER tickets_id_before_insert BEFORE INSERT ON tickets FOR EACH ROW EXECUTE FUNCTION trg_ticket_id()
+tickets_updated_at — table: tickets
+Definition: CREATE TRIGGER tickets_updated_at BEFORE UPDATE ON tickets FOR EACH ROW EXECUTE FUNCTION trg_tickets_updated_at()
+trg_sla_status_change — table: tickets
+Definition: CREATE TRIGGER trg_sla_status_change AFTER UPDATE ON tickets FOR EACH ROW WHEN (old.inquiry_status IS DISTINCT FROM new.inquiry_status OR old.ticket_status IS DISTINCT FROM new.ticket_status) EXECUTE FUNCTION trg_sla_status_change()
+Schema: realtime
+
+tr_check_filters — table: realtime.subscription
+Definition: CREATE TRIGGER tr_check_filters BEFORE INSERT OR UPDATE ON realtime.subscription FOR EACH ROW EXECUTE FUNCTION realtime.subscription_check_filters()
+Schema: storage
+
+enforce_bucket_name_length_trigger — table: storage.buckets
+Definition: CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF name ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_bucket_name_length()
+objects_delete_delete_prefix — table: storage.objects
+Definition: CREATE TRIGGER objects_delete_delete_prefix AFTER DELETE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger()
+objects_insert_create_prefix — table: storage.objects
+Definition: CREATE TRIGGER objects_insert_create_prefix BEFORE INSERT ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.objects_insert_prefix_trigger()
+objects_update_create_prefix — table: storage.objects
+Definition: CREATE TRIGGER objects_update_create_prefix BEFORE UPDATE ON storage.objects FOR EACH ROW WHEN (new.name <> old.name OR new.bucket_id <> old.bucket_id) EXECUTE FUNCTION storage.objects_update_prefix_trigger()
+update_objects_updated_at — table: storage.objects
+Definition: CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column()
+prefixes_create_hierarchy — table: storage.prefixes
+Definition: CREATE TRIGGER prefixes_create_hierarchy BEFORE INSERT ON storage.prefixes FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION storage.prefixes_insert_trigger()
+prefixes_delete_hierarchy — table: storage.prefixes
+Definition: CREATE TRIGGER prefixes_delete_hierarchy AFTER DELETE ON storage.prefixes FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger()
+Schema: vault
+
+(Tidak ditemukan trigger di schema vault)
+
+
+[
+  {
+    "schema": "auth",
+    "enum_name": "aal_level",
+    "enum_values": "{aal1,aal2,aal3}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "code_challenge_method",
+    "enum_values": "{s256,plain}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "factor_status",
+    "enum_values": "{unverified,verified}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "factor_type",
+    "enum_values": "{totp,webauthn,phone}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "oauth_authorization_status",
+    "enum_values": "{pending,approved,denied,expired}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "oauth_client_type",
+    "enum_values": "{public,confidential}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "oauth_registration_type",
+    "enum_values": "{dynamic,manual}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "oauth_response_type",
+    "enum_values": "{code}"
+  },
+  {
+    "schema": "auth",
+    "enum_name": "one_time_token_type",
+    "enum_values": "{confirmation_token,reauthentication_token,recovery_token,email_change_token_new,email_change_token_current,phone_change_token}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "account_activity_status",
+    "enum_values": "{Active,Passive,Inactive}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "activity_status",
+    "enum_values": "{Planned,Done,Cancelled}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "activity_type",
+    "enum_values": "{Visit,Call,\"Online Meeting\",Email,\"WhatsApp/Chat Outbound\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "activity_type_v2",
+    "enum_values": "{Call,Email,Visit,\"Online Meeting\",WhatsApp,\"LinkedIn Message\",\"Send Proposal\",\"Send Quote\",\"Follow Up\",\"Internal Meeting\",Other}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "crm_audit_action",
+    "enum_values": "{LEAD_CREATED,LEAD_UPDATED,LEAD_TRIAGE,LEAD_QUALIFIED,LEAD_DISQUALIFIED,LEAD_HANDED_OVER,LEAD_CLAIMED,LEAD_CONVERTED,OPPORTUNITY_CREATED,OPPORTUNITY_UPDATED,OPPORTUNITY_STAGE_CHANGED,OPPORTUNITY_WON,OPPORTUNITY_LOST,ACTIVITY_CREATED,ACTIVITY_UPDATED,ACTIVITY_COMPLETED,ACTIVITY_CANCELLED,ACCOUNT_CREATED,ACCOUNT_UPDATED,ACCOUNT_MERGED,CONTACT_CREATED,CONTACT_UPDATED,TARGET_CREATED,TARGET_UPDATED,TARGET_CONVERTED,TARGET_STATUS_CHANGED,INSERT,UPDATE,DELETE,MERGE}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "dept_code",
+    "enum_values": "{MKT,SAL,DOM,EXI,DTD,FIN,TRF,DIR}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "import_status",
+    "enum_values": "{UPLOADED,PROCESSING,COMPLETED,FAILED}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "inquiry_status",
+    "enum_values": "{OPEN,\"WAITING RESPON\",\"WAITING CUSTOMER\",CLOSED,\"CLOSED LOST\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "invoice_status",
+    "enum_values": "{CREATED,SENT,WAITING_PAYMENT,PAID,VOID}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "kpi_calc_method",
+    "enum_values": "{AUTO,MANUAL,IMPORTED}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "kpi_direction",
+    "enum_values": "{HIGHER_BETTER,LOWER_BETTER}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "lead_source_by",
+    "enum_values": "{Marketing,Sales}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "lead_status",
+    "enum_values": "{New,Contacted,Qualified,Proposal,Negotiation,\"Closed Won\",\"Closed Lost\",Disqualified}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "lead_triage_status",
+    "enum_values": "{New,\"In Review\",Qualified,Nurture,Disqualified,\"Handed Over\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "next_step",
+    "enum_values": "{Call,Email,Visit,\"Online Meeting\",\"Send Proposal\",\"Follow Up\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "opportunity_stage",
+    "enum_values": "{Prospecting,Discovery,\"Proposal Sent\",\"Quote Sent\",Negotiation,\"Verbal Commit\",\"Closed Won\",\"Closed Lost\",\"On Hold\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "primary_channel",
+    "enum_values": "{LinkedIn,SEM,\"Paid Social\",\"Website (Direct/Referral)\",\"Webinar & Live\",\"Event Offline\",\"Trade Show\",Partnership/Referral,\"Sales Outbound\",\"Sales Referral\",Other}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "prospect_stage",
+    "enum_values": "{\"Prospect Created\",\"Initial Contact\",\"Need Analysis\",\"Proposal Sent\",Negotiation,\"Closed Won\",\"Closed Lost\",Nurturing}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "target_status",
+    "enum_values": "{new_target,contacted,engaged,qualified,dropped,converted}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "tenure_status",
+    "enum_values": "{Prospect,\"New Customer\",\"Active Customer\",\"Winback Target\"}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "ticket_status",
+    "enum_values": "{OPEN,\"IN PROGRESS\",CLOSED}"
+  },
+  {
+    "schema": "public",
+    "enum_name": "ticket_type",
+    "enum_values": "{\"inquiry tariff\",\"general request\",\"request pickup\",\"request delivery\"}"
+  },
+  {
+    "schema": "realtime",
+    "enum_name": "action",
+    "enum_values": "{INSERT,UPDATE,DELETE,TRUNCATE,ERROR}"
+  },
+  {
+    "schema": "realtime",
+    "enum_name": "equality_op",
+    "enum_values": "{eq,neq,lt,lte,gt,gte,in}"
+  },
+  {
+    "schema": "storage",
+    "enum_name": "buckettype",
+    "enum_values": "{STANDARD,ANALYTICS,VECTOR}"
+  }
+]
+
+
+[
+  {
+    "schema": "auth",
+    "table_name": "audit_log_entries",
+    "index_name": "auth.audit_log_entries_pkey",
+    "definition": "CREATE UNIQUE INDEX audit_log_entries_pkey ON auth.audit_log_entries USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "audit_log_entries",
+    "index_name": "auth.audit_logs_instance_id_idx",
+    "definition": "CREATE INDEX audit_logs_instance_id_idx ON auth.audit_log_entries USING btree (instance_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "flow_state",
+    "index_name": "auth.flow_state_created_at_idx",
+    "definition": "CREATE INDEX flow_state_created_at_idx ON auth.flow_state USING btree (created_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "flow_state",
+    "index_name": "auth.flow_state_pkey",
+    "definition": "CREATE UNIQUE INDEX flow_state_pkey ON auth.flow_state USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "flow_state",
+    "index_name": "auth.idx_auth_code",
+    "definition": "CREATE INDEX idx_auth_code ON auth.flow_state USING btree (auth_code)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "flow_state",
+    "index_name": "auth.idx_user_id_auth_method",
+    "definition": "CREATE INDEX idx_user_id_auth_method ON auth.flow_state USING btree (user_id, authentication_method)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "identities",
+    "index_name": "auth.identities_email_idx",
+    "definition": "CREATE INDEX identities_email_idx ON auth.identities USING btree (email text_pattern_ops)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "identities",
+    "index_name": "auth.identities_pkey",
+    "definition": "CREATE UNIQUE INDEX identities_pkey ON auth.identities USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "identities",
+    "index_name": "auth.identities_provider_id_provider_unique",
+    "definition": "CREATE UNIQUE INDEX identities_provider_id_provider_unique ON auth.identities USING btree (provider_id, provider)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "identities",
+    "index_name": "auth.identities_user_id_idx",
+    "definition": "CREATE INDEX identities_user_id_idx ON auth.identities USING btree (user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "instances",
+    "index_name": "auth.instances_pkey",
+    "definition": "CREATE UNIQUE INDEX instances_pkey ON auth.instances USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_amr_claims",
+    "index_name": "auth.amr_id_pk",
+    "definition": "CREATE UNIQUE INDEX amr_id_pk ON auth.mfa_amr_claims USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_amr_claims",
+    "index_name": "auth.mfa_amr_claims_session_id_authentication_method_pkey",
+    "definition": "CREATE UNIQUE INDEX mfa_amr_claims_session_id_authentication_method_pkey ON auth.mfa_amr_claims USING btree (session_id, authentication_method)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_challenges",
+    "index_name": "auth.mfa_challenge_created_at_idx",
+    "definition": "CREATE INDEX mfa_challenge_created_at_idx ON auth.mfa_challenges USING btree (created_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_challenges",
+    "index_name": "auth.mfa_challenges_pkey",
+    "definition": "CREATE UNIQUE INDEX mfa_challenges_pkey ON auth.mfa_challenges USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.factor_id_created_at_idx",
+    "definition": "CREATE INDEX factor_id_created_at_idx ON auth.mfa_factors USING btree (user_id, created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.mfa_factors_last_challenged_at_key",
+    "definition": "CREATE UNIQUE INDEX mfa_factors_last_challenged_at_key ON auth.mfa_factors USING btree (last_challenged_at)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.mfa_factors_pkey",
+    "definition": "CREATE UNIQUE INDEX mfa_factors_pkey ON auth.mfa_factors USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.mfa_factors_user_friendly_name_unique",
+    "definition": "CREATE UNIQUE INDEX mfa_factors_user_friendly_name_unique ON auth.mfa_factors USING btree (friendly_name, user_id) WHERE (TRIM(BOTH FROM friendly_name) <> ''::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.mfa_factors_user_id_idx",
+    "definition": "CREATE INDEX mfa_factors_user_id_idx ON auth.mfa_factors USING btree (user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "mfa_factors",
+    "index_name": "auth.unique_phone_factor_per_user",
+    "definition": "CREATE UNIQUE INDEX unique_phone_factor_per_user ON auth.mfa_factors USING btree (user_id, phone)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_authorizations",
+    "index_name": "auth.oauth_auth_pending_exp_idx",
+    "definition": "CREATE INDEX oauth_auth_pending_exp_idx ON auth.oauth_authorizations USING btree (expires_at) WHERE (status = 'pending'::auth.oauth_authorization_status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_authorizations",
+    "index_name": "auth.oauth_authorizations_authorization_code_key",
+    "definition": "CREATE UNIQUE INDEX oauth_authorizations_authorization_code_key ON auth.oauth_authorizations USING btree (authorization_code)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_authorizations",
+    "index_name": "auth.oauth_authorizations_authorization_id_key",
+    "definition": "CREATE UNIQUE INDEX oauth_authorizations_authorization_id_key ON auth.oauth_authorizations USING btree (authorization_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_authorizations",
+    "index_name": "auth.oauth_authorizations_pkey",
+    "definition": "CREATE UNIQUE INDEX oauth_authorizations_pkey ON auth.oauth_authorizations USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_client_states",
+    "index_name": "auth.idx_oauth_client_states_created_at",
+    "definition": "CREATE INDEX idx_oauth_client_states_created_at ON auth.oauth_client_states USING btree (created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_client_states",
+    "index_name": "auth.oauth_client_states_pkey",
+    "definition": "CREATE UNIQUE INDEX oauth_client_states_pkey ON auth.oauth_client_states USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_clients",
+    "index_name": "auth.oauth_clients_deleted_at_idx",
+    "definition": "CREATE INDEX oauth_clients_deleted_at_idx ON auth.oauth_clients USING btree (deleted_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_clients",
+    "index_name": "auth.oauth_clients_pkey",
+    "definition": "CREATE UNIQUE INDEX oauth_clients_pkey ON auth.oauth_clients USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_consents",
+    "index_name": "auth.oauth_consents_active_client_idx",
+    "definition": "CREATE INDEX oauth_consents_active_client_idx ON auth.oauth_consents USING btree (client_id) WHERE (revoked_at IS NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_consents",
+    "index_name": "auth.oauth_consents_active_user_client_idx",
+    "definition": "CREATE INDEX oauth_consents_active_user_client_idx ON auth.oauth_consents USING btree (user_id, client_id) WHERE (revoked_at IS NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_consents",
+    "index_name": "auth.oauth_consents_pkey",
+    "definition": "CREATE UNIQUE INDEX oauth_consents_pkey ON auth.oauth_consents USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_consents",
+    "index_name": "auth.oauth_consents_user_client_unique",
+    "definition": "CREATE UNIQUE INDEX oauth_consents_user_client_unique ON auth.oauth_consents USING btree (user_id, client_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "oauth_consents",
+    "index_name": "auth.oauth_consents_user_order_idx",
+    "definition": "CREATE INDEX oauth_consents_user_order_idx ON auth.oauth_consents USING btree (user_id, granted_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "one_time_tokens",
+    "index_name": "auth.one_time_tokens_pkey",
+    "definition": "CREATE UNIQUE INDEX one_time_tokens_pkey ON auth.one_time_tokens USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "one_time_tokens",
+    "index_name": "auth.one_time_tokens_relates_to_hash_idx",
+    "definition": "CREATE INDEX one_time_tokens_relates_to_hash_idx ON auth.one_time_tokens USING hash (relates_to)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "one_time_tokens",
+    "index_name": "auth.one_time_tokens_token_hash_hash_idx",
+    "definition": "CREATE INDEX one_time_tokens_token_hash_hash_idx ON auth.one_time_tokens USING hash (token_hash)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "one_time_tokens",
+    "index_name": "auth.one_time_tokens_user_id_token_type_key",
+    "definition": "CREATE UNIQUE INDEX one_time_tokens_user_id_token_type_key ON auth.one_time_tokens USING btree (user_id, token_type)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_instance_id_idx",
+    "definition": "CREATE INDEX refresh_tokens_instance_id_idx ON auth.refresh_tokens USING btree (instance_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_instance_id_user_id_idx",
+    "definition": "CREATE INDEX refresh_tokens_instance_id_user_id_idx ON auth.refresh_tokens USING btree (instance_id, user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_parent_idx",
+    "definition": "CREATE INDEX refresh_tokens_parent_idx ON auth.refresh_tokens USING btree (parent)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_pkey",
+    "definition": "CREATE UNIQUE INDEX refresh_tokens_pkey ON auth.refresh_tokens USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_session_id_revoked_idx",
+    "definition": "CREATE INDEX refresh_tokens_session_id_revoked_idx ON auth.refresh_tokens USING btree (session_id, revoked)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_token_unique",
+    "definition": "CREATE UNIQUE INDEX refresh_tokens_token_unique ON auth.refresh_tokens USING btree (token)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "refresh_tokens",
+    "index_name": "auth.refresh_tokens_updated_at_idx",
+    "definition": "CREATE INDEX refresh_tokens_updated_at_idx ON auth.refresh_tokens USING btree (updated_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_providers",
+    "index_name": "auth.saml_providers_entity_id_key",
+    "definition": "CREATE UNIQUE INDEX saml_providers_entity_id_key ON auth.saml_providers USING btree (entity_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_providers",
+    "index_name": "auth.saml_providers_pkey",
+    "definition": "CREATE UNIQUE INDEX saml_providers_pkey ON auth.saml_providers USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_providers",
+    "index_name": "auth.saml_providers_sso_provider_id_idx",
+    "definition": "CREATE INDEX saml_providers_sso_provider_id_idx ON auth.saml_providers USING btree (sso_provider_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_relay_states",
+    "index_name": "auth.saml_relay_states_created_at_idx",
+    "definition": "CREATE INDEX saml_relay_states_created_at_idx ON auth.saml_relay_states USING btree (created_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_relay_states",
+    "index_name": "auth.saml_relay_states_for_email_idx",
+    "definition": "CREATE INDEX saml_relay_states_for_email_idx ON auth.saml_relay_states USING btree (for_email)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_relay_states",
+    "index_name": "auth.saml_relay_states_pkey",
+    "definition": "CREATE UNIQUE INDEX saml_relay_states_pkey ON auth.saml_relay_states USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "saml_relay_states",
+    "index_name": "auth.saml_relay_states_sso_provider_id_idx",
+    "definition": "CREATE INDEX saml_relay_states_sso_provider_id_idx ON auth.saml_relay_states USING btree (sso_provider_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "schema_migrations",
+    "index_name": "auth.schema_migrations_pkey",
+    "definition": "CREATE UNIQUE INDEX schema_migrations_pkey ON auth.schema_migrations USING btree (version)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "sessions",
+    "index_name": "auth.sessions_not_after_idx",
+    "definition": "CREATE INDEX sessions_not_after_idx ON auth.sessions USING btree (not_after DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sessions",
+    "index_name": "auth.sessions_oauth_client_id_idx",
+    "definition": "CREATE INDEX sessions_oauth_client_id_idx ON auth.sessions USING btree (oauth_client_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sessions",
+    "index_name": "auth.sessions_pkey",
+    "definition": "CREATE UNIQUE INDEX sessions_pkey ON auth.sessions USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "sessions",
+    "index_name": "auth.sessions_user_id_idx",
+    "definition": "CREATE INDEX sessions_user_id_idx ON auth.sessions USING btree (user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sessions",
+    "index_name": "auth.user_id_created_at_idx",
+    "definition": "CREATE INDEX user_id_created_at_idx ON auth.sessions USING btree (user_id, created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_domains",
+    "index_name": "auth.sso_domains_domain_idx",
+    "definition": "CREATE UNIQUE INDEX sso_domains_domain_idx ON auth.sso_domains USING btree (lower(domain))",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_domains",
+    "index_name": "auth.sso_domains_pkey",
+    "definition": "CREATE UNIQUE INDEX sso_domains_pkey ON auth.sso_domains USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_domains",
+    "index_name": "auth.sso_domains_sso_provider_id_idx",
+    "definition": "CREATE INDEX sso_domains_sso_provider_id_idx ON auth.sso_domains USING btree (sso_provider_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_providers",
+    "index_name": "auth.sso_providers_pkey",
+    "definition": "CREATE UNIQUE INDEX sso_providers_pkey ON auth.sso_providers USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_providers",
+    "index_name": "auth.sso_providers_resource_id_idx",
+    "definition": "CREATE UNIQUE INDEX sso_providers_resource_id_idx ON auth.sso_providers USING btree (lower(resource_id))",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "sso_providers",
+    "index_name": "auth.sso_providers_resource_id_pattern_idx",
+    "definition": "CREATE INDEX sso_providers_resource_id_pattern_idx ON auth.sso_providers USING btree (resource_id text_pattern_ops)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.confirmation_token_idx",
+    "definition": "CREATE UNIQUE INDEX confirmation_token_idx ON auth.users USING btree (confirmation_token) WHERE ((confirmation_token)::text !~ '^[0-9 ]*$'::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.email_change_token_current_idx",
+    "definition": "CREATE UNIQUE INDEX email_change_token_current_idx ON auth.users USING btree (email_change_token_current) WHERE ((email_change_token_current)::text !~ '^[0-9 ]*$'::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.email_change_token_new_idx",
+    "definition": "CREATE UNIQUE INDEX email_change_token_new_idx ON auth.users USING btree (email_change_token_new) WHERE ((email_change_token_new)::text !~ '^[0-9 ]*$'::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.reauthentication_token_idx",
+    "definition": "CREATE UNIQUE INDEX reauthentication_token_idx ON auth.users USING btree (reauthentication_token) WHERE ((reauthentication_token)::text !~ '^[0-9 ]*$'::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.recovery_token_idx",
+    "definition": "CREATE UNIQUE INDEX recovery_token_idx ON auth.users USING btree (recovery_token) WHERE ((recovery_token)::text !~ '^[0-9 ]*$'::text)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_email_partial_key",
+    "definition": "CREATE UNIQUE INDEX users_email_partial_key ON auth.users USING btree (email) WHERE (is_sso_user = false)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_instance_id_email_idx",
+    "definition": "CREATE INDEX users_instance_id_email_idx ON auth.users USING btree (instance_id, lower((email)::text))",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_instance_id_idx",
+    "definition": "CREATE INDEX users_instance_id_idx ON auth.users USING btree (instance_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_is_anonymous_idx",
+    "definition": "CREATE INDEX users_is_anonymous_idx ON auth.users USING btree (is_anonymous)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_phone_key",
+    "definition": "CREATE UNIQUE INDEX users_phone_key ON auth.users USING btree (phone)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "auth",
+    "table_name": "users",
+    "index_name": "auth.users_pkey",
+    "definition": "CREATE UNIQUE INDEX users_pkey ON auth.users USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospect_stage_history",
+    "index_name": "idx_stage_hist_changed_at",
+    "definition": "CREATE INDEX idx_stage_hist_changed_at ON public._archived_prospect_stage_history USING btree (changed_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospect_stage_history",
+    "index_name": "idx_stage_hist_prospect",
+    "definition": "CREATE INDEX idx_stage_hist_prospect ON public._archived_prospect_stage_history USING btree (prospect_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospect_stage_history",
+    "index_name": "prospect_stage_history_pkey",
+    "definition": "CREATE UNIQUE INDEX prospect_stage_history_pkey ON public._archived_prospect_stage_history USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospects",
+    "index_name": "idx_prospects_customer",
+    "definition": "CREATE INDEX idx_prospects_customer ON public._archived_prospects USING btree (customer_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospects",
+    "index_name": "idx_prospects_owner",
+    "definition": "CREATE INDEX idx_prospects_owner ON public._archived_prospects USING btree (owner_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospects",
+    "index_name": "idx_prospects_stage",
+    "definition": "CREATE INDEX idx_prospects_stage ON public._archived_prospects USING btree (current_stage)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_prospects",
+    "index_name": "prospects_pkey",
+    "definition": "CREATE UNIQUE INDEX prospects_pkey ON public._archived_prospects USING btree (prospect_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_sales_activities",
+    "index_name": "idx_sales_activities_created_at",
+    "definition": "CREATE INDEX idx_sales_activities_created_at ON public._archived_sales_activities USING btree (created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_sales_activities",
+    "index_name": "idx_sales_activities_prospect",
+    "definition": "CREATE INDEX idx_sales_activities_prospect ON public._archived_sales_activities USING btree (prospect_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_sales_activities",
+    "index_name": "idx_sales_activities_type",
+    "definition": "CREATE INDEX idx_sales_activities_type ON public._archived_sales_activities USING btree (activity_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "_archived_sales_activities",
+    "index_name": "sales_activities_pkey",
+    "definition": "CREATE UNIQUE INDEX sales_activities_pkey ON public._archived_sales_activities USING btree (activity_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "customers_pkey",
+    "definition": "CREATE UNIQUE INDEX customers_pkey ON public.accounts USING btree (account_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "idx_accounts_domain_unique",
+    "definition": "CREATE UNIQUE INDEX idx_accounts_domain_unique ON public.accounts USING btree (domain) WHERE (domain IS NOT NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "idx_accounts_npwp_unique",
+    "definition": "CREATE UNIQUE INDEX idx_accounts_npwp_unique ON public.accounts USING btree (npwp) WHERE (npwp IS NOT NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "idx_customers_company",
+    "definition": "CREATE INDEX idx_customers_company ON public.accounts USING btree (company_name)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "idx_customers_email",
+    "definition": "CREATE INDEX idx_customers_email ON public.accounts USING btree (pic_email)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "accounts",
+    "index_name": "idx_customers_npwp",
+    "definition": "CREATE INDEX idx_customers_npwp ON public.accounts USING btree (npwp) WHERE (npwp IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "activities_pkey",
+    "definition": "CREATE UNIQUE INDEX activities_pkey ON public.activities USING btree (activity_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_account",
+    "definition": "CREATE INDEX idx_activities_account ON public.activities USING btree (related_account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_due",
+    "definition": "CREATE INDEX idx_activities_due ON public.activities USING btree (due_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_opportunity",
+    "definition": "CREATE INDEX idx_activities_opportunity ON public.activities USING btree (related_opportunity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_owner",
+    "definition": "CREATE INDEX idx_activities_owner ON public.activities USING btree (owner_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_scheduled",
+    "definition": "CREATE INDEX idx_activities_scheduled ON public.activities USING btree (scheduled_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_status",
+    "definition": "CREATE INDEX idx_activities_status ON public.activities USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "activities",
+    "index_name": "idx_activities_type",
+    "definition": "CREATE INDEX idx_activities_type ON public.activities USING btree (activity_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "audit_logs_pkey",
+    "definition": "CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_action_type",
+    "definition": "CREATE INDEX idx_audit_action_type ON public.audit_logs USING btree (action_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_actor",
+    "definition": "CREATE INDEX idx_audit_actor ON public.audit_logs USING btree (actor_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_changed_at",
+    "definition": "CREATE INDEX idx_audit_changed_at ON public.audit_logs USING btree (changed_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_changed_by",
+    "definition": "CREATE INDEX idx_audit_changed_by ON public.audit_logs USING btree (changed_by)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_correlation_id",
+    "definition": "CREATE INDEX idx_audit_correlation_id ON public.audit_logs USING btree (correlation_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_entity",
+    "definition": "CREATE INDEX idx_audit_entity ON public.audit_logs USING btree (entity)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_entity_id",
+    "definition": "CREATE INDEX idx_audit_entity_id ON public.audit_logs USING btree (entity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_entity_timeline",
+    "definition": "CREATE INDEX idx_audit_entity_timeline ON public.audit_logs USING btree (entity, entity_id, changed_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_record",
+    "definition": "CREATE INDEX idx_audit_record ON public.audit_logs USING btree (record_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "audit_logs",
+    "index_name": "idx_audit_table",
+    "definition": "CREATE INDEX idx_audit_table ON public.audit_logs USING btree (table_name)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_enrollments",
+    "index_name": "cadence_enrollments_pkey",
+    "definition": "CREATE UNIQUE INDEX cadence_enrollments_pkey ON public.cadence_enrollments USING btree (enrollment_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_enrollments",
+    "index_name": "idx_enrollments_account",
+    "definition": "CREATE INDEX idx_enrollments_account ON public.cadence_enrollments USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_enrollments",
+    "index_name": "idx_enrollments_cadence",
+    "definition": "CREATE INDEX idx_enrollments_cadence ON public.cadence_enrollments USING btree (cadence_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_enrollments",
+    "index_name": "idx_enrollments_opportunity",
+    "definition": "CREATE INDEX idx_enrollments_opportunity ON public.cadence_enrollments USING btree (opportunity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_enrollments",
+    "index_name": "idx_enrollments_status",
+    "definition": "CREATE INDEX idx_enrollments_status ON public.cadence_enrollments USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_steps",
+    "index_name": "cadence_steps_pkey",
+    "definition": "CREATE UNIQUE INDEX cadence_steps_pkey ON public.cadence_steps USING btree (step_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "cadence_steps",
+    "index_name": "idx_cadence_steps_order",
+    "definition": "CREATE UNIQUE INDEX idx_cadence_steps_order ON public.cadence_steps USING btree (cadence_id, step_number)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "cadences",
+    "index_name": "cadences_pkey",
+    "definition": "CREATE UNIQUE INDEX cadences_pkey ON public.cadences USING btree (cadence_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "contacts",
+    "index_name": "contacts_pkey",
+    "definition": "CREATE UNIQUE INDEX contacts_pkey ON public.contacts USING btree (contact_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "contacts",
+    "index_name": "idx_contacts_account",
+    "definition": "CREATE INDEX idx_contacts_account ON public.contacts USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "contacts",
+    "index_name": "idx_contacts_email_account",
+    "definition": "CREATE UNIQUE INDEX idx_contacts_email_account ON public.contacts USING btree (account_id, email) WHERE (email IS NOT NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "contacts",
+    "index_name": "idx_contacts_phone_account",
+    "definition": "CREATE UNIQUE INDEX idx_contacts_phone_account ON public.contacts USING btree (account_id, phone) WHERE (phone IS NOT NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_idempotency",
+    "index_name": "crm_idempotency_pkey",
+    "definition": "CREATE UNIQUE INDEX crm_idempotency_pkey ON public.crm_idempotency USING btree (idempotency_key)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_idempotency",
+    "index_name": "idx_idempotency_expires",
+    "definition": "CREATE INDEX idx_idempotency_expires ON public.crm_idempotency USING btree (expires_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "crm_transition_logs_pkey",
+    "definition": "CREATE UNIQUE INDEX crm_transition_logs_pkey ON public.crm_transition_logs USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "idx_crm_transition_action",
+    "definition": "CREATE INDEX idx_crm_transition_action ON public.crm_transition_logs USING btree (action)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "idx_crm_transition_actor",
+    "definition": "CREATE INDEX idx_crm_transition_actor ON public.crm_transition_logs USING btree (actor_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "idx_crm_transition_correlation",
+    "definition": "CREATE INDEX idx_crm_transition_correlation ON public.crm_transition_logs USING btree (correlation_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "idx_crm_transition_created",
+    "definition": "CREATE INDEX idx_crm_transition_created ON public.crm_transition_logs USING btree (created_at DESC)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "crm_transition_logs",
+    "index_name": "idx_crm_transition_entity",
+    "definition": "CREATE INDEX idx_crm_transition_entity ON public.crm_transition_logs USING btree (entity, entity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "departments",
+    "index_name": "departments_pkey",
+    "definition": "CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (dept_code)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "id_sequences",
+    "index_name": "id_sequences_pkey",
+    "definition": "CREATE UNIQUE INDEX id_sequences_pkey ON public.id_sequences USING btree (prefix, date_part)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "import_batches",
+    "index_name": "idx_import_batches_created_by",
+    "definition": "CREATE INDEX idx_import_batches_created_by ON public.import_batches USING btree (created_by)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "import_batches",
+    "index_name": "idx_import_batches_entity_type",
+    "definition": "CREATE INDEX idx_import_batches_entity_type ON public.import_batches USING btree (entity_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "import_batches",
+    "index_name": "idx_import_batches_file_hash",
+    "definition": "CREATE INDEX idx_import_batches_file_hash ON public.import_batches USING btree (file_hash)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "import_batches",
+    "index_name": "import_batches_pkey",
+    "definition": "CREATE UNIQUE INDEX import_batches_pkey ON public.import_batches USING btree (batch_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "import_rows",
+    "index_name": "idx_import_rows_import",
+    "definition": "CREATE INDEX idx_import_rows_import ON public.import_rows USING btree (import_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "import_rows",
+    "index_name": "import_rows_pkey",
+    "definition": "CREATE UNIQUE INDEX import_rows_pkey ON public.import_rows USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "imports",
+    "index_name": "idx_imports_module",
+    "definition": "CREATE INDEX idx_imports_module ON public.imports USING btree (module)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "imports",
+    "index_name": "idx_imports_status",
+    "definition": "CREATE INDEX idx_imports_status ON public.imports USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "imports",
+    "index_name": "imports_pkey",
+    "definition": "CREATE UNIQUE INDEX imports_pkey ON public.imports USING btree (import_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "invoice_ledger",
+    "index_name": "idx_invoice_ledger_account",
+    "definition": "CREATE INDEX idx_invoice_ledger_account ON public.invoice_ledger USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoice_ledger",
+    "index_name": "idx_invoice_ledger_date",
+    "definition": "CREATE INDEX idx_invoice_ledger_date ON public.invoice_ledger USING btree (invoice_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoice_ledger",
+    "index_name": "idx_invoice_ledger_status",
+    "definition": "CREATE INDEX idx_invoice_ledger_status ON public.invoice_ledger USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoice_ledger",
+    "index_name": "invoice_ledger_pkey",
+    "definition": "CREATE UNIQUE INDEX invoice_ledger_pkey ON public.invoice_ledger USING btree (ledger_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "invoices",
+    "index_name": "idx_invoices_customer",
+    "definition": "CREATE INDEX idx_invoices_customer ON public.invoices USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoices",
+    "index_name": "idx_invoices_date",
+    "definition": "CREATE INDEX idx_invoices_date ON public.invoices USING btree (invoice_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoices",
+    "index_name": "idx_invoices_due",
+    "definition": "CREATE INDEX idx_invoices_due ON public.invoices USING btree (due_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "invoices",
+    "index_name": "invoices_pkey",
+    "definition": "CREATE UNIQUE INDEX invoices_pkey ON public.invoices USING btree (invoice_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_actuals",
+    "index_name": "idx_kpi_actuals_metric",
+    "definition": "CREATE INDEX idx_kpi_actuals_metric ON public.kpi_actuals USING btree (metric_key)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_actuals",
+    "index_name": "idx_kpi_actuals_period",
+    "definition": "CREATE INDEX idx_kpi_actuals_period ON public.kpi_actuals USING btree (period_start, period_end)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_actuals",
+    "index_name": "idx_kpi_actuals_user",
+    "definition": "CREATE INDEX idx_kpi_actuals_user ON public.kpi_actuals USING btree (user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_actuals",
+    "index_name": "kpi_actuals_pkey",
+    "definition": "CREATE UNIQUE INDEX kpi_actuals_pkey ON public.kpi_actuals USING btree (actual_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_actuals",
+    "index_name": "uq_kpi_actuals_metric_period_user",
+    "definition": "CREATE UNIQUE INDEX uq_kpi_actuals_metric_period_user ON public.kpi_actuals USING btree (metric_key, period_start, period_end, user_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_metric_definitions",
+    "index_name": "kpi_metric_definitions_pkey",
+    "definition": "CREATE UNIQUE INDEX kpi_metric_definitions_pkey ON public.kpi_metric_definitions USING btree (metric_key)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_targets",
+    "index_name": "idx_kpi_targets_assignee",
+    "definition": "CREATE INDEX idx_kpi_targets_assignee ON public.kpi_targets USING btree (assignee_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_targets",
+    "index_name": "idx_kpi_targets_metric",
+    "definition": "CREATE INDEX idx_kpi_targets_metric ON public.kpi_targets USING btree (metric_key)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_targets",
+    "index_name": "idx_kpi_targets_period",
+    "definition": "CREATE INDEX idx_kpi_targets_period ON public.kpi_targets USING btree (period_start, period_end)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_targets",
+    "index_name": "kpi_targets_pkey",
+    "definition": "CREATE UNIQUE INDEX kpi_targets_pkey ON public.kpi_targets USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "kpi_targets",
+    "index_name": "uq_kpi_targets_metric_period_assignee",
+    "definition": "CREATE UNIQUE INDEX uq_kpi_targets_metric_period_assignee ON public.kpi_targets USING btree (metric_key, period_start, period_end, assignee_user_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "lead_handover_pool",
+    "index_name": "idx_handover_pool_lead",
+    "definition": "CREATE INDEX idx_handover_pool_lead ON public.lead_handover_pool USING btree (lead_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "lead_handover_pool",
+    "index_name": "idx_handover_pool_unclaimed",
+    "definition": "CREATE INDEX idx_handover_pool_unclaimed ON public.lead_handover_pool USING btree (claimed_by) WHERE (claimed_by IS NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "lead_handover_pool",
+    "index_name": "lead_handover_pool_lead_id_key",
+    "definition": "CREATE UNIQUE INDEX lead_handover_pool_lead_id_key ON public.lead_handover_pool USING btree (lead_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "lead_handover_pool",
+    "index_name": "lead_handover_pool_pkey",
+    "definition": "CREATE UNIQUE INDEX lead_handover_pool_pkey ON public.lead_handover_pool USING btree (handover_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_channel",
+    "definition": "CREATE INDEX idx_leads_channel ON public.leads USING btree (primary_channel)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_created_by",
+    "definition": "CREATE INDEX idx_leads_created_by ON public.leads USING btree (created_by)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_customer",
+    "definition": "CREATE INDEX idx_leads_customer ON public.leads USING btree (customer_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_date",
+    "definition": "CREATE INDEX idx_leads_date ON public.leads USING btree (lead_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_dedupe",
+    "definition": "CREATE INDEX idx_leads_dedupe ON public.leads USING btree (dedupe_key) WHERE (dedupe_key IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_owner",
+    "definition": "CREATE INDEX idx_leads_owner ON public.leads USING btree (sales_owner_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_sla",
+    "definition": "CREATE INDEX idx_leads_sla ON public.leads USING btree (sla_deadline)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_status",
+    "definition": "CREATE INDEX idx_leads_status ON public.leads USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "idx_leads_triage",
+    "definition": "CREATE INDEX idx_leads_triage ON public.leads USING btree (triage_status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "leads",
+    "index_name": "leads_pkey",
+    "definition": "CREATE UNIQUE INDEX leads_pkey ON public.leads USING btree (lead_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_activity_events",
+    "index_name": "idx_mkt_events_channel",
+    "definition": "CREATE INDEX idx_mkt_events_channel ON public.marketing_activity_events USING btree (channel)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_activity_events",
+    "index_name": "idx_mkt_events_date",
+    "definition": "CREATE INDEX idx_mkt_events_date ON public.marketing_activity_events USING btree (activity_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_activity_events",
+    "index_name": "marketing_activity_events_pkey",
+    "definition": "CREATE UNIQUE INDEX marketing_activity_events_pkey ON public.marketing_activity_events USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_spend",
+    "index_name": "idx_mkt_spend_channel",
+    "definition": "CREATE INDEX idx_mkt_spend_channel ON public.marketing_spend USING btree (channel)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_spend",
+    "index_name": "idx_mkt_spend_date",
+    "definition": "CREATE INDEX idx_mkt_spend_date ON public.marketing_spend USING btree (spend_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "marketing_spend",
+    "index_name": "marketing_spend_pkey",
+    "definition": "CREATE UNIQUE INDEX marketing_spend_pkey ON public.marketing_spend USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "idx_opportunities_account",
+    "definition": "CREATE INDEX idx_opportunities_account ON public.opportunities USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "idx_opportunities_expected_close",
+    "definition": "CREATE INDEX idx_opportunities_expected_close ON public.opportunities USING btree (expected_close_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "idx_opportunities_next_step_due",
+    "definition": "CREATE INDEX idx_opportunities_next_step_due ON public.opportunities USING btree (next_step_due_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "idx_opportunities_owner",
+    "definition": "CREATE INDEX idx_opportunities_owner ON public.opportunities USING btree (owner_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "idx_opportunities_stage",
+    "definition": "CREATE INDEX idx_opportunities_stage ON public.opportunities USING btree (stage)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunities",
+    "index_name": "opportunities_pkey",
+    "definition": "CREATE UNIQUE INDEX opportunities_pkey ON public.opportunities USING btree (opportunity_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunity_stage_history",
+    "index_name": "idx_opp_stage_hist_at",
+    "definition": "CREATE INDEX idx_opp_stage_hist_at ON public.opportunity_stage_history USING btree (changed_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunity_stage_history",
+    "index_name": "idx_opp_stage_hist_opp",
+    "definition": "CREATE INDEX idx_opp_stage_hist_opp ON public.opportunity_stage_history USING btree (opportunity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "opportunity_stage_history",
+    "index_name": "opportunity_stage_history_pkey",
+    "definition": "CREATE UNIQUE INDEX opportunity_stage_history_pkey ON public.opportunity_stage_history USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "payments",
+    "index_name": "idx_payments_date",
+    "definition": "CREATE INDEX idx_payments_date ON public.payments USING btree (payment_date)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "payments",
+    "index_name": "idx_payments_invoice",
+    "definition": "CREATE INDEX idx_payments_invoice ON public.payments USING btree (invoice_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "payments",
+    "index_name": "payments_pkey",
+    "definition": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (payment_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "profiles",
+    "index_name": "idx_profiles_dept",
+    "definition": "CREATE INDEX idx_profiles_dept ON public.profiles USING btree (dept_code)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "profiles",
+    "index_name": "idx_profiles_manager",
+    "definition": "CREATE INDEX idx_profiles_manager ON public.profiles USING btree (manager_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "profiles",
+    "index_name": "idx_profiles_role",
+    "definition": "CREATE INDEX idx_profiles_role ON public.profiles USING btree (role_name)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "profiles",
+    "index_name": "profiles_pkey",
+    "definition": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (user_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "profiles",
+    "index_name": "profiles_user_code_key",
+    "definition": "CREATE UNIQUE INDEX profiles_user_code_key ON public.profiles USING btree (user_code)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_prospecting_targets_company_domain",
+    "definition": "CREATE INDEX idx_prospecting_targets_company_domain ON public.prospecting_targets USING btree (lower(company_name), lower(domain)) WHERE (domain IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_prospecting_targets_contact_email",
+    "definition": "CREATE INDEX idx_prospecting_targets_contact_email ON public.prospecting_targets USING btree (lower(contact_email)) WHERE (contact_email IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_prospecting_targets_dedupe_lookup",
+    "definition": "CREATE INDEX idx_prospecting_targets_dedupe_lookup ON public.prospecting_targets USING btree (dedupe_key, target_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_prospecting_targets_import_batch",
+    "definition": "CREATE INDEX idx_prospecting_targets_import_batch ON public.prospecting_targets USING btree (import_batch_id) WHERE (import_batch_id IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_converted_at",
+    "definition": "CREATE INDEX idx_targets_converted_at ON public.prospecting_targets USING btree (converted_at) WHERE (converted_at IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_dedupe",
+    "definition": "CREATE UNIQUE INDEX idx_targets_dedupe ON public.prospecting_targets USING btree (dedupe_key)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_dropped_at",
+    "definition": "CREATE INDEX idx_targets_dropped_at ON public.prospecting_targets USING btree (dropped_at) WHERE (dropped_at IS NOT NULL)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_next_outreach",
+    "definition": "CREATE INDEX idx_targets_next_outreach ON public.prospecting_targets USING btree (next_outreach_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_owner",
+    "definition": "CREATE INDEX idx_targets_owner ON public.prospecting_targets USING btree (owner_user_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "idx_targets_status",
+    "definition": "CREATE INDEX idx_targets_status ON public.prospecting_targets USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "prospecting_targets_dedupe_key_key",
+    "definition": "CREATE UNIQUE INDEX prospecting_targets_dedupe_key_key ON public.prospecting_targets USING btree (dedupe_key)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "prospecting_targets",
+    "index_name": "prospecting_targets_pkey",
+    "definition": "CREATE UNIQUE INDEX prospecting_targets_pkey ON public.prospecting_targets USING btree (target_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "quotes",
+    "index_name": "idx_quotes_account",
+    "definition": "CREATE INDEX idx_quotes_account ON public.quotes USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "quotes",
+    "index_name": "idx_quotes_opportunity",
+    "definition": "CREATE INDEX idx_quotes_opportunity ON public.quotes USING btree (opportunity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "quotes",
+    "index_name": "idx_quotes_status",
+    "definition": "CREATE INDEX idx_quotes_status ON public.quotes USING btree (status)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "quotes",
+    "index_name": "idx_quotes_version",
+    "definition": "CREATE UNIQUE INDEX idx_quotes_version ON public.quotes USING btree (opportunity_id, version)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "quotes",
+    "index_name": "quotes_pkey",
+    "definition": "CREATE UNIQUE INDEX quotes_pkey ON public.quotes USING btree (quote_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "roles",
+    "index_name": "roles_pkey",
+    "definition": "CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (role_name)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "saved_views",
+    "index_name": "idx_saved_views_module",
+    "definition": "CREATE INDEX idx_saved_views_module ON public.saved_views USING btree (module)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "saved_views",
+    "index_name": "idx_saved_views_user",
+    "definition": "CREATE INDEX idx_saved_views_user ON public.saved_views USING btree (created_by)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "saved_views",
+    "index_name": "saved_views_pkey",
+    "definition": "CREATE UNIQUE INDEX saved_views_pkey ON public.saved_views USING btree (view_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "service_catalog",
+    "index_name": "service_catalog_pkey",
+    "definition": "CREATE UNIQUE INDEX service_catalog_pkey ON public.service_catalog USING btree (service_code)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "shipment_profiles",
+    "index_name": "idx_shipment_profiles_account",
+    "definition": "CREATE INDEX idx_shipment_profiles_account ON public.shipment_profiles USING btree (account_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "shipment_profiles",
+    "index_name": "idx_shipment_profiles_opportunity",
+    "definition": "CREATE INDEX idx_shipment_profiles_opportunity ON public.shipment_profiles USING btree (opportunity_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "shipment_profiles",
+    "index_name": "shipment_profiles_pkey",
+    "definition": "CREATE UNIQUE INDEX shipment_profiles_pkey ON public.shipment_profiles USING btree (profile_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "sla_events",
+    "index_name": "idx_sla_events_ticket",
+    "definition": "CREATE INDEX idx_sla_events_ticket ON public.sla_events USING btree (ticket_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "sla_events",
+    "index_name": "idx_sla_events_type",
+    "definition": "CREATE INDEX idx_sla_events_type ON public.sla_events USING btree (event_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "sla_events",
+    "index_name": "sla_events_pkey",
+    "definition": "CREATE UNIQUE INDEX sla_events_pkey ON public.sla_events USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "target_status_transitions",
+    "index_name": "target_status_transitions_from_status_to_status_key",
+    "definition": "CREATE UNIQUE INDEX target_status_transitions_from_status_to_status_key ON public.target_status_transitions USING btree (from_status, to_status)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "target_status_transitions",
+    "index_name": "target_status_transitions_pkey",
+    "definition": "CREATE UNIQUE INDEX target_status_transitions_pkey ON public.target_status_transitions USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "ticket_attachments",
+    "index_name": "idx_ticket_attachments_ticket",
+    "definition": "CREATE INDEX idx_ticket_attachments_ticket ON public.ticket_attachments USING btree (ticket_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "ticket_attachments",
+    "index_name": "ticket_attachments_pkey",
+    "definition": "CREATE UNIQUE INDEX ticket_attachments_pkey ON public.ticket_attachments USING btree (attachment_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "ticket_messages",
+    "index_name": "idx_ticket_messages_created_at",
+    "definition": "CREATE INDEX idx_ticket_messages_created_at ON public.ticket_messages USING btree (created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "ticket_messages",
+    "index_name": "idx_ticket_messages_ticket",
+    "definition": "CREATE INDEX idx_ticket_messages_ticket ON public.ticket_messages USING btree (ticket_id)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "ticket_messages",
+    "index_name": "ticket_messages_pkey",
+    "definition": "CREATE UNIQUE INDEX ticket_messages_pkey ON public.ticket_messages USING btree (message_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "idx_tickets_assigned",
+    "definition": "CREATE INDEX idx_tickets_assigned ON public.tickets USING btree (assigned_to)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "idx_tickets_created_at",
+    "definition": "CREATE INDEX idx_tickets_created_at ON public.tickets USING btree (created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "idx_tickets_created_by",
+    "definition": "CREATE INDEX idx_tickets_created_by ON public.tickets USING btree (created_by)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "idx_tickets_dept",
+    "definition": "CREATE INDEX idx_tickets_dept ON public.tickets USING btree (dept_target)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "idx_tickets_type",
+    "definition": "CREATE INDEX idx_tickets_type ON public.tickets USING btree (ticket_type)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "public",
+    "table_name": "tickets",
+    "index_name": "tickets_pkey",
+    "definition": "CREATE UNIQUE INDEX tickets_pkey ON public.tickets USING btree (ticket_id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "realtime",
+    "table_name": "messages",
+    "index_name": "realtime.messages_inserted_at_topic_index",
+    "definition": "CREATE INDEX messages_inserted_at_topic_index ON ONLY realtime.messages USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE))",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "realtime",
+    "table_name": "messages",
+    "index_name": "realtime.messages_pkey",
+    "definition": "CREATE UNIQUE INDEX messages_pkey ON ONLY realtime.messages USING btree (id, inserted_at)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "realtime",
+    "table_name": "schema_migrations",
+    "index_name": "realtime.schema_migrations_pkey",
+    "definition": "CREATE UNIQUE INDEX schema_migrations_pkey ON realtime.schema_migrations USING btree (version)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "realtime",
+    "table_name": "subscription",
+    "index_name": "realtime.ix_realtime_subscription_entity",
+    "definition": "CREATE INDEX ix_realtime_subscription_entity ON realtime.subscription USING btree (entity)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "realtime",
+    "table_name": "subscription",
+    "index_name": "realtime.pk_subscription",
+    "definition": "CREATE UNIQUE INDEX pk_subscription ON realtime.subscription USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "realtime",
+    "table_name": "subscription",
+    "index_name": "realtime.subscription_subscription_id_entity_filters_key",
+    "definition": "CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_key ON realtime.subscription USING btree (subscription_id, entity, filters)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "buckets",
+    "index_name": "storage.bname",
+    "definition": "CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "buckets",
+    "index_name": "storage.buckets_pkey",
+    "definition": "CREATE UNIQUE INDEX buckets_pkey ON storage.buckets USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "buckets_analytics",
+    "index_name": "storage.buckets_analytics_pkey",
+    "definition": "CREATE UNIQUE INDEX buckets_analytics_pkey ON storage.buckets_analytics USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "buckets_analytics",
+    "index_name": "storage.buckets_analytics_unique_name_idx",
+    "definition": "CREATE UNIQUE INDEX buckets_analytics_unique_name_idx ON storage.buckets_analytics USING btree (name) WHERE (deleted_at IS NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "buckets_vectors",
+    "index_name": "storage.buckets_vectors_pkey",
+    "definition": "CREATE UNIQUE INDEX buckets_vectors_pkey ON storage.buckets_vectors USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "migrations",
+    "index_name": "storage.migrations_name_key",
+    "definition": "CREATE UNIQUE INDEX migrations_name_key ON storage.migrations USING btree (name)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "migrations",
+    "index_name": "storage.migrations_pkey",
+    "definition": "CREATE UNIQUE INDEX migrations_pkey ON storage.migrations USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.bucketid_objname",
+    "definition": "CREATE UNIQUE INDEX bucketid_objname ON storage.objects USING btree (bucket_id, name)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.idx_name_bucket_level_unique",
+    "definition": "CREATE UNIQUE INDEX idx_name_bucket_level_unique ON storage.objects USING btree (name COLLATE \"C\", bucket_id, level)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.idx_objects_bucket_id_name",
+    "definition": "CREATE INDEX idx_objects_bucket_id_name ON storage.objects USING btree (bucket_id, name COLLATE \"C\")",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.idx_objects_lower_name",
+    "definition": "CREATE INDEX idx_objects_lower_name ON storage.objects USING btree ((path_tokens[level]), lower(name) text_pattern_ops, bucket_id, level)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.name_prefix_search",
+    "definition": "CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.objects_bucket_id_level_idx",
+    "definition": "CREATE UNIQUE INDEX objects_bucket_id_level_idx ON storage.objects USING btree (bucket_id, level, name COLLATE \"C\")",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "objects",
+    "index_name": "storage.objects_pkey",
+    "definition": "CREATE UNIQUE INDEX objects_pkey ON storage.objects USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "prefixes",
+    "index_name": "storage.idx_prefixes_lower_name",
+    "definition": "CREATE INDEX idx_prefixes_lower_name ON storage.prefixes USING btree (bucket_id, level, ((string_to_array(name, '/'::text))[level]), lower(name) text_pattern_ops)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "prefixes",
+    "index_name": "storage.prefixes_pkey",
+    "definition": "CREATE UNIQUE INDEX prefixes_pkey ON storage.prefixes USING btree (bucket_id, level, name)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "s3_multipart_uploads",
+    "index_name": "storage.idx_multipart_uploads_list",
+    "definition": "CREATE INDEX idx_multipart_uploads_list ON storage.s3_multipart_uploads USING btree (bucket_id, key, created_at)",
+    "is_unique": false,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "s3_multipart_uploads",
+    "index_name": "storage.s3_multipart_uploads_pkey",
+    "definition": "CREATE UNIQUE INDEX s3_multipart_uploads_pkey ON storage.s3_multipart_uploads USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "s3_multipart_uploads_parts",
+    "index_name": "storage.s3_multipart_uploads_parts_pkey",
+    "definition": "CREATE UNIQUE INDEX s3_multipart_uploads_parts_pkey ON storage.s3_multipart_uploads_parts USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "storage",
+    "table_name": "vector_indexes",
+    "index_name": "storage.vector_indexes_name_bucket_id_idx",
+    "definition": "CREATE UNIQUE INDEX vector_indexes_name_bucket_id_idx ON storage.vector_indexes USING btree (name, bucket_id)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "storage",
+    "table_name": "vector_indexes",
+    "index_name": "storage.vector_indexes_pkey",
+    "definition": "CREATE UNIQUE INDEX vector_indexes_pkey ON storage.vector_indexes USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "schema": "vault",
+    "table_name": "secrets",
+    "index_name": "vault.secrets_name_idx",
+    "definition": "CREATE UNIQUE INDEX secrets_name_idx ON vault.secrets USING btree (name) WHERE (name IS NOT NULL)",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "schema": "vault",
+    "table_name": "secrets",
+    "index_name": "vault.secrets_pkey",
+    "definition": "CREATE UNIQUE INDEX secrets_pkey ON vault.secrets USING btree (id)",
+    "is_unique": true,
+    "is_primary": true
+  }
+]
+
+
+[
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospect_stage_history",
+    "policy_name": "stage_hist_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(EXISTS ( SELECT 1\n   FROM _archived_prospects p\n  WHERE ((p.prospect_id = _archived_prospect_stage_history.prospect_id) AND (app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((p.owner_user_id = auth.uid()) OR app_is_my_team_member(p.owner_user_id))) OR (app_is_role('salesperson'::text) AND (p.owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text)))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospect_stage_history",
+    "policy_name": "stage_hist_select_scoped",
+    "for_command": "S",
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM _archived_prospects p\n  WHERE ((p.prospect_id = _archived_prospect_stage_history.prospect_id) AND app_can_read_prospect(p.*))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospects",
+    "policy_name": "prospects_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospects",
+    "policy_name": "prospects_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text, 'salesperson'::text]) OR app_is_any_role(ARRAY['Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text]))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospects",
+    "policy_name": "prospects_select_scoped",
+    "for_command": "S",
+    "using_expression": "app_can_read_prospect(_archived_prospects.*)",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_prospects",
+    "policy_name": "prospects_update_allowed",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((owner_user_id = auth.uid()) OR app_is_my_team_member(owner_user_id))) OR (app_is_role('salesperson'::text) AND (owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text))",
+    "with_check_expression": "(app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((owner_user_id = auth.uid()) OR app_is_my_team_member(owner_user_id))) OR (app_is_role('salesperson'::text) AND (owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_sales_activities",
+    "policy_name": "sales_activities_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_sales_activities",
+    "policy_name": "sales_activities_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR (created_by = auth.uid()))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_sales_activities",
+    "policy_name": "sales_activities_select_scoped",
+    "for_command": "S",
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM _archived_prospects p\n  WHERE ((p.prospect_id = _archived_sales_activities.prospect_id) AND app_can_read_prospect(p.*))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "_archived_sales_activities",
+    "policy_name": "sales_activities_update_super",
+    "for_command": "U",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": "app_is_super_admin()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "accounts_delete",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "accounts_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "accounts_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR is_sales_team() OR is_marketing_team() OR is_finance_team() OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = accounts.owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "accounts_update",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = accounts.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "with_check_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = accounts.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "customers_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "customers_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text, 'salesperson'::text]))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "customers_select_scoped",
+    "for_command": "S",
+    "using_expression": "app_can_read_customer(accounts.*)",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "accounts",
+    "policy_name": "customers_update_allowed",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text]) OR (app_is_role('salesperson'::text) AND (EXISTS ( SELECT 1\n   FROM leads l\n  WHERE ((l.customer_id = accounts.account_id) AND (l.sales_owner_user_id = auth.uid()))))))",
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text]) OR (app_is_role('salesperson'::text) AND (EXISTS ( SELECT 1\n   FROM leads l\n  WHERE ((l.customer_id = accounts.account_id) AND (l.sales_owner_user_id = auth.uid()))))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "activities",
+    "policy_name": "activities_delete_enhanced",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "activities",
+    "policy_name": "activities_insert_enhanced",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "activities",
+    "policy_name": "activities_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR is_marketing_team() OR is_sales_team() OR (created_by = auth.uid()) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = activities.owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "activities",
+    "policy_name": "activities_update_enhanced",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = activities.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "with_check_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = activities.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "audit_logs",
+    "policy_name": "audit_logs_delete_enhanced",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "audit_logs",
+    "policy_name": "audit_logs_insert_enhanced",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "app_is_authenticated()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "audit_logs",
+    "policy_name": "audit_logs_select_admin",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "audit_logs",
+    "policy_name": "audit_logs_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadence_enrollments",
+    "policy_name": "enrollments_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadence_enrollments",
+    "policy_name": "enrollments_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR (enrolled_by = auth.uid()))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadence_enrollments",
+    "policy_name": "enrollments_update",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR (enrolled_by = auth.uid()))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadence_steps",
+    "policy_name": "cadence_steps_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "is_crm_admin()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadence_steps",
+    "policy_name": "cadence_steps_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadences",
+    "policy_name": "cadences_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "is_crm_admin()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadences",
+    "policy_name": "cadences_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "cadences",
+    "policy_name": "cadences_update",
+    "for_command": "U",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "contacts",
+    "policy_name": "contacts_delete",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "contacts",
+    "policy_name": "contacts_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "contacts",
+    "policy_name": "contacts_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team() OR is_finance_team() OR (EXISTS ( SELECT 1\n   FROM accounts a\n  WHERE ((a.account_id = contacts.account_id) AND ((a.owner_user_id = auth.uid()) OR (EXISTS ( SELECT 1\n           FROM profiles p\n          WHERE ((p.user_id = a.owner_user_id) AND (p.manager_user_id = auth.uid())))))))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "contacts",
+    "policy_name": "contacts_update",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR is_sales_team())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "crm_idempotency",
+    "policy_name": "idempotency_all",
+    "for_command": "*",
+    "using_expression": "(is_crm_admin() OR (created_by = auth.uid()))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "crm_transition_logs",
+    "policy_name": "crm_transition_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "app_is_authenticated()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "crm_transition_logs",
+    "policy_name": "crm_transition_select",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "departments",
+    "policy_name": "departments_select_auth",
+    "for_command": "S",
+    "using_expression": "app_is_authenticated()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "departments",
+    "policy_name": "departments_write_super",
+    "for_command": "*",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": "app_is_super_admin()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "import_batches",
+    "policy_name": "import_batches_insert_authenticated",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(auth.uid() = created_by)",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "import_batches",
+    "policy_name": "import_batches_select_sales_marketing",
+    "for_command": "S",
+    "using_expression": "(app_is_sales() OR app_is_marketing())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "import_rows",
+    "policy_name": "import_rows_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "import_rows",
+    "policy_name": "import_rows_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(EXISTS ( SELECT 1\n   FROM imports i\n  WHERE ((i.import_id = import_rows.import_id) AND (app_is_super_admin() OR (i.uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text)))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "import_rows",
+    "policy_name": "import_rows_select_allowed",
+    "for_command": "S",
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM imports i\n  WHERE ((i.import_id = import_rows.import_id) AND (app_is_super_admin() OR (i.uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text)))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR (uploaded_by = auth.uid()))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_insert_creator",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "((auth.uid() = uploaded_by) OR app_is_super_admin())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_select_allowed",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_select_creator",
+    "for_command": "S",
+    "using_expression": "((auth.uid() = uploaded_by) OR app_is_super_admin())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "imports",
+    "policy_name": "imports_update_allowed",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))",
+    "with_check_expression": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoice_ledger",
+    "policy_name": "invoice_ledger_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.user_id = auth.uid()) AND (profiles.dept_code = 'FIN'::dept_code)))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoice_ledger",
+    "policy_name": "invoice_ledger_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.user_id = auth.uid()) AND (profiles.dept_code = 'FIN'::dept_code)))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoices",
+    "policy_name": "invoices_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoices",
+    "policy_name": "invoices_insert_finance",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoices",
+    "policy_name": "invoices_select_scoped",
+    "for_command": "S",
+    "using_expression": "app_can_read_invoice(invoices.*)",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "invoices",
+    "policy_name": "invoices_update_finance",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_actuals",
+    "policy_name": "kpi_actuals_delete_admin",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_actuals",
+    "policy_name": "kpi_actuals_insert_own",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "((user_id = auth.uid()) OR app_is_super_admin())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_actuals",
+    "policy_name": "kpi_actuals_select_own",
+    "for_command": "S",
+    "using_expression": "((user_id = auth.uid()) OR app_is_super_admin() OR app_is_director() OR (app_current_role() = ANY (ARRAY['Marketing Manager'::text, 'sales manager'::text])))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_actuals",
+    "policy_name": "kpi_actuals_update_own",
+    "for_command": "U",
+    "using_expression": "((user_id = auth.uid()) OR app_is_super_admin())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_metric_definitions",
+    "policy_name": "kpi_defs_select_auth",
+    "for_command": "S",
+    "using_expression": "app_is_authenticated()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_metric_definitions",
+    "policy_name": "kpi_defs_write_super",
+    "for_command": "*",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": "app_is_super_admin()",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_targets",
+    "policy_name": "kpi_targets_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_targets",
+    "policy_name": "kpi_targets_insert_manager",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_targets",
+    "policy_name": "kpi_targets_select_scoped",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director() OR (assignee_user_id = auth.uid()) OR (app_is_role('sales manager'::text) AND (assignee_user_id IS NOT NULL) AND app_is_my_team_member(assignee_user_id)) OR (app_is_role('Marketing Manager'::text) AND (assignee_user_id IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = kpi_targets.assignee_user_id) AND (p.role_name = ANY (ARRAY['Marketing Manager'::text, 'Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text])))))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "kpi_targets",
+    "policy_name": "kpi_targets_update_manager",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))",
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "lead_handover_pool",
+    "policy_name": "handover_pool_delete_enhanced",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "lead_handover_pool",
+    "policy_name": "handover_pool_insert_enhanced",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_marketing_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "lead_handover_pool",
+    "policy_name": "handover_pool_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "lead_handover_pool",
+    "policy_name": "handover_pool_update_enhanced",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR is_sales_team())",
+    "with_check_expression": "(is_crm_admin() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "leads",
+    "policy_name": "leads_delete_enhanced",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "leads",
+    "policy_name": "leads_insert_enhanced",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_marketing_team() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "leads",
+    "policy_name": "leads_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR (created_by = auth.uid()) OR (sales_owner_user_id = auth.uid()) OR is_marketing_team() OR (is_sales_team() AND ((sales_owner_user_id IS NOT NULL) OR (sourced_by = 'Sales'::lead_source_by))) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = leads.sales_owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "leads",
+    "policy_name": "leads_update_enhanced",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR (created_by = auth.uid()) OR (sales_owner_user_id = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = leads.sales_owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "with_check_expression": "(is_crm_admin() OR (created_by = auth.uid()) OR (sales_owner_user_id = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = leads.sales_owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_activity_events",
+    "policy_name": "mkt_activity_delete_allowed",
+    "for_command": "D",
+    "using_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_activity_events",
+    "policy_name": "mkt_activity_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_activity_events",
+    "policy_name": "mkt_activity_select_allowed",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director() OR app_is_marketing())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_activity_events",
+    "policy_name": "mkt_activity_update_allowed",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "with_check_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "marketing_spend_insert_marketing",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_marketing() OR app_is_super_admin())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "marketing_spend_select_marketing",
+    "for_command": "S",
+    "using_expression": "(app_is_marketing() OR app_is_super_admin())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "mkt_spend_delete_allowed",
+    "for_command": "D",
+    "using_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "mkt_spend_insert_allowed",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "mkt_spend_select_allowed",
+    "for_command": "S",
+    "using_expression": "(app_is_super_admin() OR app_is_director() OR app_is_marketing())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "marketing_spend",
+    "policy_name": "mkt_spend_update_allowed",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "with_check_expression": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunities",
+    "policy_name": "opportunities_delete_enhanced",
+    "for_command": "D",
+    "using_expression": "is_crm_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunities",
+    "policy_name": "opportunities_insert_enhanced",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunities",
+    "policy_name": "opportunities_select_enhanced",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR is_marketing_team() OR is_sales_team() OR is_finance_team() OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = opportunities.owner_user_id) AND (p.manager_user_id = auth.uid())))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunities",
+    "policy_name": "opportunities_update_enhanced",
+    "for_command": "U",
+    "using_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = opportunities.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "with_check_expression": "(is_crm_admin() OR (owner_user_id = auth.uid()) OR (is_sales_team() AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = opportunities.owner_user_id) AND (p.manager_user_id = auth.uid()))))))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunity_stage_history",
+    "policy_name": "opp_stage_history_insert",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(is_crm_admin() OR is_sales_team())",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "opportunity_stage_history",
+    "policy_name": "opp_stage_history_select",
+    "for_command": "S",
+    "using_expression": "(is_crm_admin() OR is_sales_team() OR is_marketing_team())",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "payments",
+    "policy_name": "payments_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "payments",
+    "policy_name": "payments_insert_finance",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "payments",
+    "policy_name": "payments_select_scoped",
+    "for_command": "S",
+    "using_expression": "(EXISTS ( SELECT 1\n   FROM invoices i\n  WHERE ((i.invoice_id = payments.invoice_id) AND app_can_read_invoice(i.*))))",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "payments",
+    "policy_name": "payments_update_finance",
+    "for_command": "U",
+    "using_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "with_check_expression": "(app_is_super_admin() OR app_is_role('finance'::text))",
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "profiles",
+    "policy_name": "profiles_delete_super",
+    "for_command": "D",
+    "using_expression": "app_is_super_admin()",
+    "with_check_expression": null,
+    "role_names": "public",
+    "permissive": true
+  },
+  {
+    "schema_name": "public",
+    "table_name": "profiles",
+    "policy_name": "profiles_insert_super",
+    "for_command": "I",
+    "using_expression": null,
+    "with_check_expression": "app_is_super_admin()",
+    "role_names": "public",
+    "permissive": true
+  }
+]
+
