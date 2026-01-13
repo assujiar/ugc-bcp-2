@@ -999,7 +999,7 @@ END $$;
 
 DROP TRIGGER IF EXISTS trg_audit_leads ON leads;
 DROP TRIGGER IF EXISTS trg_audit_tickets ON tickets;
-DROP TRIGGER IF EXISTS trg_audit_prospects ON prospects;
+-- Note: prospects table does not exist in current schema, removed trg_audit_prospects drop
 DROP TRIGGER IF EXISTS trg_audit_invoices ON invoices;
 DROP TRIGGER IF EXISTS trg_audit_kpi_targets ON kpi_targets;
 
