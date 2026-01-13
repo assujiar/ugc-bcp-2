@@ -400,9 +400,10 @@ export default function PipelinePage() {
                     </p>
                   ) : (
                     stageOpps.map((opp) => (
-                      <div
+                      <Link
                         key={opp.opportunity_id}
-                        className="p-3 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                        href={`/crm/opportunities/${opp.opportunity_id}`}
+                        className="block p-3 rounded-lg bg-card border border-border hover:border-primary/50 hover:shadow-sm transition-all"
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
@@ -410,12 +411,9 @@ export default function PipelinePage() {
                               {opp.account?.company_name?.charAt(0) || "?"}
                             </div>
                             <div>
-                              <Link
-                                href={`/crm/accounts/${opp.account?.account_id}`}
-                                className="text-sm font-medium text-foreground hover:text-primary truncate block max-w-[140px]"
-                              >
+                              <span className="text-sm font-medium text-foreground truncate block max-w-[140px]">
                                 {opp.account?.company_name || "Unknown"}
-                              </Link>
+                              </span>
                               <p className="text-xs text-muted-foreground truncate max-w-[140px]">
                                 {opp.name}
                               </p>
@@ -435,10 +433,13 @@ export default function PipelinePage() {
                           {opp.next_step} ({new Date(opp.next_step_due_date).toLocaleDateString()})
                         </div>
 
-                        <div className="pt-2 border-t border-border">
+                        <div className="pt-2 border-t border-border" onClick={(e) => e.preventDefault()}>
                           <select
                             value={opp.stage}
-                            onChange={(e) => handleStageChange(opp.opportunity_id, e.target.value)}
+                            onChange={(e) => {
+                              e.preventDefault();
+                              handleStageChange(opp.opportunity_id, e.target.value);
+                            }}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full text-xs bg-muted/50 border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
                           >
@@ -449,7 +450,7 @@ export default function PipelinePage() {
                             ))}
                           </select>
                         </div>
-                      </div>
+                      </Link>
                     ))
                   )}
                 </div>
@@ -477,14 +478,21 @@ export default function PipelinePage() {
               {filteredOpportunities.map((opp) => {
                 const stageConfig = STAGES.find((s) => s.key === opp.stage);
                 return (
-                  <tr key={opp.opportunity_id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={opp.opportunity_id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => window.location.href = `/crm/opportunities/${opp.opportunity_id}`}>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-medium text-foreground">{opp.name}</span>
+                      <Link
+                        href={`/crm/opportunities/${opp.opportunity_id}`}
+                        className="text-sm font-medium text-foreground hover:text-primary"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {opp.name}
+                      </Link>
                     </td>
                     <td className="px-6 py-4">
                       <Link
                         href={`/crm/accounts/${opp.account?.account_id}`}
                         className="text-sm text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {opp.account?.company_name || "-"}
                       </Link>
