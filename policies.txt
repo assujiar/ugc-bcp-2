@@ -1,0 +1,897 @@
+[
+  {
+    "jsonb_agg": [
+      {
+        "cmd": "SELECT",
+        "qual": "app_is_authenticated()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "roles",
+        "policyname": "roles_select_auth",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "ALL",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "roles",
+        "policyname": "roles_write_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_is_authenticated()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "departments",
+        "policyname": "departments_select_auth",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "ALL",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "departments",
+        "policyname": "departments_write_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(user_id = auth.uid())",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_select_self",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR app_is_director())",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_select_super_director",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_insert_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_update_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_mm_insert_mkt",
+        "schemaname": "public",
+        "with_check": "(app_is_role('Marketing Manager'::text) AND (role_name = ANY (ARRAY['Marketing Manager'::text, 'Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text])) AND (dept_code = 'MKT'::dept_code))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_role('Marketing Manager'::text) AND (role_name = ANY (ARRAY['Marketing Manager'::text, 'Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text])) AND (dept_code = 'MKT'::dept_code))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_mm_update_mkt",
+        "schemaname": "public",
+        "with_check": "(app_is_role('Marketing Manager'::text) AND (role_name = ANY (ARRAY['Marketing Manager'::text, 'Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text])) AND (dept_code = 'MKT'::dept_code))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(user_id = auth.uid())",
+        "roles": [
+          "public"
+        ],
+        "tablename": "profiles",
+        "policyname": "profiles_update_self",
+        "schemaname": "public",
+        "with_check": "(user_id = auth.uid())"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_is_authenticated()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "service_catalog",
+        "policyname": "service_select_auth",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "ALL",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "service_catalog",
+        "policyname": "service_write_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_can_read_customer(customers.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "customers",
+        "policyname": "customers_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "customers",
+        "policyname": "customers_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text, 'salesperson'::text]))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text]) OR (app_is_role('salesperson'::text) AND (EXISTS ( SELECT 1\n   FROM leads l\n  WHERE ((l.customer_id = customers.customer_id) AND (l.sales_owner_user_id = auth.uid()))))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "customers",
+        "policyname": "customers_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text]) OR (app_is_role('salesperson'::text) AND (EXISTS ( SELECT 1\n   FROM leads l\n  WHERE ((l.customer_id = customers.customer_id) AND (l.sales_owner_user_id = auth.uid()))))))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "customers",
+        "policyname": "customers_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_can_read_lead(leads.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "leads",
+        "policyname": "leads_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "leads",
+        "policyname": "leads_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_marketing() OR app_is_sales())"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR (created_by = auth.uid()) OR (sales_owner_user_id = auth.uid()) OR (app_is_role('sales manager'::text) AND (sales_owner_user_id IS NOT NULL) AND app_is_my_team_member(sales_owner_user_id)) OR app_is_role('sales support'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "leads",
+        "policyname": "leads_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR (created_by = auth.uid()) OR (sales_owner_user_id = auth.uid()) OR (app_is_role('sales manager'::text) AND (sales_owner_user_id IS NOT NULL) AND app_is_my_team_member(sales_owner_user_id)) OR app_is_role('sales support'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "leads",
+        "policyname": "leads_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_can_read_prospect(prospects.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospects",
+        "policyname": "prospects_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospects",
+        "policyname": "prospects_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('Marketing Manager'::text) OR app_is_any_role(ARRAY['sales manager'::text, 'sales support'::text, 'salesperson'::text]) OR app_is_any_role(ARRAY['Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text]))"
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "payments",
+        "policyname": "payments_insert_finance",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('finance'::text))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((owner_user_id = auth.uid()) OR app_is_my_team_member(owner_user_id))) OR (app_is_role('salesperson'::text) AND (owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospects",
+        "policyname": "prospects_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((owner_user_id = auth.uid()) OR app_is_my_team_member(owner_user_id))) OR (app_is_role('salesperson'::text) AND (owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospects",
+        "policyname": "prospects_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM prospects p\n  WHERE ((p.prospect_id = prospect_stage_history.prospect_id) AND app_can_read_prospect(p.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospect_stage_history",
+        "policyname": "stage_hist_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "prospect_stage_history",
+        "policyname": "stage_hist_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(EXISTS ( SELECT 1\n   FROM prospects p\n  WHERE ((p.prospect_id = prospect_stage_history.prospect_id) AND (app_is_super_admin() OR (app_is_role('sales manager'::text) AND ((p.owner_user_id = auth.uid()) OR app_is_my_team_member(p.owner_user_id))) OR (app_is_role('salesperson'::text) AND (p.owner_user_id = auth.uid())) OR app_is_role('sales support'::text) OR app_is_role('Marketing Manager'::text)))))"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM prospects p\n  WHERE ((p.prospect_id = sales_activities.prospect_id) AND app_can_read_prospect(p.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "sales_activities",
+        "policyname": "sales_activities_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "sales_activities",
+        "policyname": "sales_activities_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (created_by = auth.uid()))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "sales_activities",
+        "policyname": "sales_activities_update_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "sales_activities",
+        "policyname": "sales_activities_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_can_read_ticket(tickets.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "tickets",
+        "policyname": "tickets_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "tickets",
+        "policyname": "tickets_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR ((app_is_director() = false) AND app_is_authenticated()))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "app_can_write_ticket(tickets.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "tickets",
+        "policyname": "tickets_update_allowed",
+        "schemaname": "public",
+        "with_check": "app_can_write_ticket(tickets.*)"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "tickets",
+        "policyname": "tickets_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = ticket_messages.ticket_id) AND app_can_read_ticket(t.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_messages",
+        "policyname": "ticket_messages_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_messages",
+        "policyname": "ticket_messages_insert_allowed",
+        "schemaname": "public",
+        "with_check": "((EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = ticket_messages.ticket_id) AND app_can_write_ticket(t.*)))) AND (created_by = auth.uid()))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_messages",
+        "policyname": "ticket_messages_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = ticket_attachments.ticket_id) AND app_can_read_ticket(t.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_attachments",
+        "policyname": "ticket_attachments_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_attachments",
+        "policyname": "ticket_attachments_insert_allowed",
+        "schemaname": "public",
+        "with_check": "((EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = ticket_attachments.ticket_id) AND app_can_write_ticket(t.*)))) AND (uploaded_by = auth.uid()))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "ticket_attachments",
+        "policyname": "ticket_attachments_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = sla_events.ticket_id) AND app_can_read_ticket(t.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "sla_events",
+        "policyname": "sla_events_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "sla_events",
+        "policyname": "sla_events_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(EXISTS ( SELECT 1\n   FROM tickets t\n  WHERE ((t.ticket_id = sla_events.ticket_id) AND app_can_write_ticket(t.*))))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "sla_events",
+        "policyname": "sla_events_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_is_authenticated()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_metric_definitions",
+        "policyname": "kpi_defs_select_auth",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "ALL",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_metric_definitions",
+        "policyname": "kpi_defs_write_super",
+        "schemaname": "public",
+        "with_check": "app_is_super_admin()"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_activity_events",
+        "policyname": "mkt_activity_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))"
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR app_is_director() OR (assignee_user_id = auth.uid()) OR (app_is_role('sales manager'::text) AND (assignee_user_id IS NOT NULL) AND app_is_my_team_member(assignee_user_id)) OR (app_is_role('Marketing Manager'::text) AND (assignee_user_id IS NOT NULL) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.user_id = kpi_targets.assignee_user_id) AND (p.role_name = ANY (ARRAY['Marketing Manager'::text, 'Marcomm (marketing staff)'::text, 'DGO (Marketing staff)'::text, 'MACX (marketing staff)'::text, 'VSDO (marketing staff)'::text])))))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_targets",
+        "policyname": "kpi_targets_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_targets",
+        "policyname": "kpi_targets_insert_manager",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_targets",
+        "policyname": "kpi_targets_update_manager",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('sales manager'::text) OR app_is_role('Marketing Manager'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "kpi_targets",
+        "policyname": "kpi_targets_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR app_is_director() OR app_is_marketing())",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_activity_events",
+        "policyname": "mkt_activity_select_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_activity_events",
+        "policyname": "mkt_activity_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_activity_events",
+        "policyname": "mkt_activity_delete_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR app_is_director() OR app_is_marketing())",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_spend",
+        "policyname": "mkt_spend_select_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_spend",
+        "policyname": "mkt_spend_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_spend",
+        "policyname": "mkt_spend_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "(app_is_super_admin() OR (app_is_marketing() AND (created_by = auth.uid())))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "marketing_spend",
+        "policyname": "mkt_spend_delete_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "imports",
+        "policyname": "imports_select_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "imports",
+        "policyname": "imports_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (uploaded_by = auth.uid()))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "imports",
+        "policyname": "imports_update_allowed",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "imports",
+        "policyname": "imports_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM imports i\n  WHERE ((i.import_id = import_rows.import_id) AND (app_is_super_admin() OR (i.uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text)))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "import_rows",
+        "policyname": "import_rows_select_allowed",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "import_rows",
+        "policyname": "import_rows_insert_allowed",
+        "schemaname": "public",
+        "with_check": "(EXISTS ( SELECT 1\n   FROM imports i\n  WHERE ((i.import_id = import_rows.import_id) AND (app_is_super_admin() OR (i.uploaded_by = auth.uid()) OR app_is_role('Marketing Manager'::text) OR app_is_role('sales support'::text)))))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "import_rows",
+        "policyname": "import_rows_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_can_read_invoice(invoices.*)",
+        "roles": [
+          "public"
+        ],
+        "tablename": "invoices",
+        "policyname": "invoices_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "invoices",
+        "policyname": "invoices_insert_finance",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('finance'::text))"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR app_is_role('finance'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "invoices",
+        "policyname": "invoices_update_finance",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('finance'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "invoices",
+        "policyname": "invoices_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(EXISTS ( SELECT 1\n   FROM invoices i\n  WHERE ((i.invoice_id = payments.invoice_id) AND app_can_read_invoice(i.*))))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "payments",
+        "policyname": "payments_select_scoped",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR app_is_role('finance'::text))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "payments",
+        "policyname": "payments_update_finance",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR app_is_role('finance'::text))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "payments",
+        "policyname": "payments_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "(app_is_super_admin() OR (created_by = auth.uid()))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "saved_views",
+        "policyname": "saved_views_select_own",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "saved_views",
+        "policyname": "saved_views_insert_own",
+        "schemaname": "public",
+        "with_check": "(created_by = auth.uid())"
+      },
+      {
+        "cmd": "UPDATE",
+        "qual": "(app_is_super_admin() OR (created_by = auth.uid()))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "saved_views",
+        "policyname": "saved_views_update_own",
+        "schemaname": "public",
+        "with_check": "(app_is_super_admin() OR (created_by = auth.uid()))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "(app_is_super_admin() OR (created_by = auth.uid()))",
+        "roles": [
+          "public"
+        ],
+        "tablename": "saved_views",
+        "policyname": "saved_views_delete_own",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "audit_logs",
+        "policyname": "audit_select_super",
+        "schemaname": "public",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "qual": null,
+        "roles": [
+          "public"
+        ],
+        "tablename": "audit_logs",
+        "policyname": "audit_insert_auth",
+        "schemaname": "public",
+        "with_check": "(app_is_authenticated() AND (changed_by = auth.uid()))"
+      },
+      {
+        "cmd": "DELETE",
+        "qual": "app_is_super_admin()",
+        "roles": [
+          "public"
+        ],
+        "tablename": "audit_logs",
+        "policyname": "audit_delete_super",
+        "schemaname": "public",
+        "with_check": null
+      }
+    ]
+  }
+]

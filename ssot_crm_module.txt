@@ -1,0 +1,228 @@
+UGC BCP CRM — Target-State SSOT (Single Source of Truth)
+1. Arsitektur Target-State
+
+Domain Model: Modul CRM mencakup entitas utama Lead, Opportunity, Account (Customer), Contact, Target, dan Activity. Setiap Lead memiliki atribut seperti triage_status (New, In Review, Qualified, Nurture, Disqualified, dll.), status (misalnya converted saat menjadi opportunity), handover_eligible (indikator siap serah terima ke sales), dan sales_owner_user_id. Opportunity (prospek berpotensi) memiliki atribut stage (kanban pipeline), next_step, dan tautan ke Account. Account menyimpan data pelanggan yang telah menjadi customer. Target adalah prospek yang diincar sebelum menjadi Lead. Semua relasi dan atribut disimpan terpusat di database Supabase (SSOT) agar tidak terjadi duplikasi atau inkonsistensi.
+
+State Machines: Proses alur utama Lead digambarkan sebagai state machine:
+
+stateDiagram
+    [*] --> New
+    New --> InReview : triase oleh Marketing
+    InReview --> Qualified : triase
+    InReview --> Nurture : triase (jaga kontak)
+    InReview --> Disqualified : triase
+    Qualified --> HandOverPool : RPC serah-kan-lead
+    HandOverPool --> AssignedToSales : klaim (oleh Salesperson)
+    AssignedToSales --> Converted : konversi ke Opportunity
+    AssignedToSales --> Disqualified : ditutup gagal
+    Converted --> [*]
+    Disqualified --> [*]
+
+
+Penjelasan: Lead baru dimulai di status New, ditindak-lanjuti menjadi In Review, lalu dapat Qualified, Nurture, atau Disqualified. Setelah Lead Qualified, server secara otomatis menandai handover_eligible=true dan memindahkan ke “Sales Pool” (mode HandOverPool) melalui RPC. Salesperson kemudian klaim lead (status Assigned) dan akhirnya konversi ke Opportunity, atau tutup gagal (Disqualified). Setelah konversi, Lead tidak lagi tampil sebagai Lead melainkan muncul sebagai Opportunity di pipeline.
+
+Aturan Visibilitas (RBAC): Akses data berdasarkan peran pengguna (roles). Misalnya, Marketing hanya melihat Leads di Lead Inbox (status New/In Review milik mereka); Sales hanya melihat Leads di Sales Inbox (pool yang siap di-claim atau milik mereka). UI hanya menampilkan menu dan data sesuai peran tanpa opsi disabled. Semua kebijakan akses terletak di database (RLS), sehingga UI hanya menampilkan data yang sudah difilter oleh RLS. Kunci service-role tidak pernah dipakai di sisi klien.
+
+Rute Kanonik: Struktur URL mengikuti konvensi REST/route-handler: misalnya GET /api/crm/leads (dengan parameter ?view= untuk Inbox, HandoverPool, Pipeline, dst.), PATCH /api/crm/leads/{id}/triage, POST /api/crm/leads, GET /api/crm/accounts, dan lain-lain. Pada UI, top-level page di antaranya /crm/leads (pipeline/daftar lead), /crm/customers (daftar account pelanggan), /crm/prospects (target/lead baru), /crm/imports (management impor data). Struktur folder aplikasi mengikuti blueprint: route API di app/api/crm/{leads,accounts,contacts,...} dan halaman di app/(protected)/crm/... sesuai entitas. Setiap halaman dan API harus konsisten menyebutkan canonical path tanpa alias atau rute ganda.
+
+2. Definisi
+
+Lead: Calon pelanggan potensial yang memasuki CRM. Status triage_status awalnya New. Tim Marketing men-triase lead menjadi In Review atau langsung Qualified.
+
+Opportunity (Prospek): Lead yang sudah dikonversi dan menjadi peluang penjualan. Tersimpan dalam Sales Pipeline dengan stage tertentu (e.g. Prospecting, Negotiation, Closed).
+
+Account (Customer): Pelanggan yang telah menjadi klien. Merupakan sumber kebenaran data customer dan tempat berlabuhnya kontak, aktivitas, dan history penjualan. Dalam tampilan CRM disebut Customer (atau Account).
+
+Contact: Orang/kontak dalam suatu Account. Aksi “Add Contact” membuat entitas ini.
+
+Target: Calon prospek pra-lead (list prospek) yang dikumpulkan dari berbagai sumber. Dikonversi menjadi Lead lewat fitur Convert.
+
+Triage Status: Kategori proses follow-up lead oleh Marketing. Nilainya termasuk: New, In Review, Qualified, Nurture, Disqualified. Status ini menentukan di halaman mana lead ditampilkan.
+
+Handover Pool (Sales Inbox): Halaman / view bagi tim Sales yang menampilkan lead dengan handover_eligible=true (siap di-claim).
+
+Sales Handover: Proses pemindahan lead dari Marketing ke Sales. Diimplementasi sebagai RPC rpc_lead_handover_to_sales_pool yang menandai flag handover_eligible tanpa mengubah triage_status.
+
+Nurture: Status untuk leads yang belum siap konversi tapi akan dihubungi kembali (khusus marketing). Aplikasi target menambahkan halaman Lead Nurture untuk menampilkannya (sebagaimana Nurture disebut tetapi belum ter-implement di state awal).
+
+CTA (Call to Action): Tindakan pemicu (mis. tombol atau link) di UI. Audit mencatat beberapa CTA mati, misalnya tombol Add Contact tanpa handler dan link Add Account yang salah arah. Semua CTA diimplementasikan dalam target state.
+
+Setiap istilah ambigu di atas ditetapkan secara eksplisit. Sebagai contoh, Lead.status berbeda dengan Lead.triage_status; dalam model target, Lead.status hanya berubah menjadi converted setelah ke oportunity, sedangkan triage_status menandai proses follow-up Marketing. Definisi ini harus dituliskan dalam glosarium untuk tim agar konsisten.
+
+3. Invarian Visibilitas + Tabel State→Destinasi
+
+Invarian Visibilitas: Setiap Lead hanya boleh tampil di tepat satu halaman atau view berdasarkan statusnya. Tidak boleh ada status yang membuat lead menjadi invisible (“hilang”) seperti yang terjadi saat ini. Dengan perbaikan, invariant berikut harus terpenuhi:
+
+Leads dengan triage_status = New atau In Review selalu muncul di Lead Inbox (/crm/lead-inbox) untuk tim Marketing.
+
+Leads yang sudah di-Qualified harus segera ditampilkan di Sales Inbox (/crm/sales-inbox) atau halaman khusus Qualified Leads, sehingga tidak jatuh ke dead-end.
+
+Leads Disqualified ditampilkan di halaman Nurture/Disqualified Leads (baru) agar tidak hilang.
+
+Leads dengan handover_eligible=true (pool) tampil di Sales Inbox hingga di-Claim. Setelah klaim, lead muncul di halaman My Leads (laman leads milik sales tersebut) sampai dikonversi.
+
+Leads yang dikonversi (status = converted) harus tidak tampil lagi di list leads; sebaliknya, mereka muncul sebagai Opportunity di Pipeline Board.
+
+Berikut contoh tabel State → Halaman Destinasi:
+
+triage_status / flag	Halaman Tampilan (UI)	Komentar
+New, In Review	Lead Inbox (/crm/lead-inbox?view=inbox)	Page daftar untuk tim Marketing.
+Qualified & handover_eligible false	Qualified Leads (baru) or Sales Inbox (tbd)	Opsi: otomatis pindah langsung ke sales.
+Handover Pool (handover_eligible=true)	Sales Inbox (/crm/sales-inbox)	Daftar leads siap klaim (belum punya sales).
+Assigned to Sales	My Leads (baru)	Halaman leads yang telah di-claim (salesowner).
+Disqualified, Nurture	Nurture/Disqualified (baru)	Daftar leads yang ditutup untuk sekarang.
+Converted (status = converted)	Pipeline Board (/crm/pipeline)	Menjadi Opportunity, masuk pipeline sales.
+
+Tabel di atas memastikan tidak ada lead yang keluar dari radar. Audit mencatat bug “qualified leads vanish” karena lead Qualified tidak punya halaman tujuan. Dengan mapping ini, setiap status punya tujuan eksplisit dan data tetap dalam SSOT di DB.
+
+4. Guardrails Teknis (DB/API/UI)
+
+Database (DB): Terapkan Row Level Security (RLS) di semua tabel publik CRM. Definisikan kebijakan (policies) yang membatasi SELECT, INSERT, UPDATE, DELETE berdasarkan auth.uid() dan peran pengguna. Contohnya, hanya creator atau user dengan role Marketing/Sales tertentu yang boleh ubah lead tertentu. RLS ini harus menegakkan model akses (RBAC) di level data, sebagai “defense-in-depth” untuk melindungi data. Gunakan service role key hanya pada server (Route Handlers) untuk operasi sensitif, tidak pernah di front-end. Pastikan juga index di kolom penting (misal sales_owner_user_id) untuk kinerja query. Log perubahan penting (audit log) di database wajib diaktifkan pada operasi PATCH dan RPC sesuai temuan audit.
+
+API: Semua operasi tulis/ubah dilakukan lewat Route Handlers (BFF), bukan panggilan langsung dari komponen Client (selain menggunakan RPC yang ada). Rute dan metode API mengikuti konvensi: misal PATCH /api/crm/leads/{id}/triage untuk triase lead, POST /api/crm/accounts untuk buat akun baru, dll. Endpoint harus terbatas aksesnya sesuai RLS; jangan ada role-level check ganda di API yang tidak sinkron dengan DB. Lakukan validasi sisi server (lengkapkan field wajib sebelum ubah status) agar data tetap konsisten. RPC Supabase (e.g. rpc_lead_handover_to_sales_pool, rpc_sales_quick_add_prospect) digunakan untuk operasi atomik dan idempoten, mengikuti fondasi kuat yang sudah ada.
+
+UI: Front-end (Next.js 16 App Router) bersifat dumb UI – tidak mengandung logika akses selain memanggil API. Menu dan komponen hanya muncul bila diizinkan, tanpa opsi disable (grey). Tangani kesalahan RPC dengan notifikasi (toast/pop-up), karena audit menemukan UI belum menampilkan error dengan baik. Semua CTA (mis. tombol “Add Contact”, “Send to Sales Pool”) diimplementasikan sesuai rute API yang valid, tidak meninggalkan placeholder tanpa handler. Gunakan library UI yang konsisten (shadcn/ui + Tailwind) sesuai blueprint. Pastikan forms memiliki validasi properti (required fields, format), sehingga UI guided user sebelum submit.
+
+Secara keseluruhan, guardrail technical menekankan: aturan akses di DB (RLS), rute API yang konsisten dengan entitas, dan UI yang ringan mengikuti desain. Komponen UI tidak boleh mem-bypass RLS atau menyimpan kunci rahasia di front-end.
+
+5. Benchmark Terbaik (Beserta Referensi)
+
+Beberapa praktik terbaik dan arsitektural yang dijadikan acuan:
+
+Single Source of Truth (SSOT): Data hanya diubah di satu tempat (DB). Menerapkan SSOT memastikan konsistensi data antar modul. Artinya, semua tampilan dan logika CRM berasal dari sumber data yang sama (Supabase Postgres dengan RLS).
+
+Next.js 16 App Router + SSR: Gunakan komponen server sebagai default, client-side hanya untuk interaksi UI ringan. This aligns with current recommendations for scalability and performance.
+
+RLS & Defense-in-Depth: Selalu aktifkan RLS pada semua tabel (public schema). Ini memberikan keamanan berlapis (mis. data selalu difilter meskipun melewati API ketiga). Praktek ini adalah benchmark untuk aplikasi Next.js + Supabase.
+
+Code Review / PR Checklist: Setiap perubahan kode dipastikan lewat PR dengan daftar periksa (conting: penamaan jelas, komentar jika perlu, tambahan unit test, dan penghapusan TODO). Meskipun [26] adalah contoh umum, tim dapat mengikuti poin checklist kode review standar industri.
+
+UX/UI Modern: Desain mengikuti gaya Dashboard SaaS modern (light theme, border-radius 14–18px, responsif) sebagaimana BluePrint mensyaratkan. Konsistensi style tokens (warna utama/danger) sesuai pedoman memastikan tampilan profesional.
+
+DB Migrations dan Helper: Audit memuji penggunaan fungsi deduplikasi dan tabel idempoten di migrasi. Terus terapkan migrasi yang menjaga integritas (mis. foreign keys, checks, enum helper).
+
+Acak/Audit Data: Catat setiap perubahan data penting (penambahan leads, update tahap, konversi) untuk kepatuhan dan debugging. Hal ini sesuai tujuan SOR/SSOT agar ada jejak audit pada setiap perubahan utama.
+
+Dengan mengacu pada praktik ini, tim memelihara kualitas, keamanan, dan kemudahan pemeliharaan. Dokumen referensi (mis. Supabase docs, blueprint di repo) harus dibaca sebagai sumber tambahan.
+
+6. Rencana Implementasi
+
+Rencana ini merinci langkah-langkah teknis prioritas untuk mencapai Target State. Setiap item mencakup kriteria penerimaan dan skrip QA terkait:
+
+Perbaiki Bug Qualified Leads (P0):
+
+Tugas: Modifikasi PATCH /api/crm/leads/{id}/triage sehingga saat triage_status menjadi Qualified, otomatis memicu RPC rpc_lead_handover_to_sales_pool. Artinya, flag handover_eligible di-set true dan lead langsung masuk Sales Pool tanpa klik manual.
+
+Acceptance: Setelah triase ke Qualified, lead muncul di halaman Sales Inbox dengan status handed over, tanpa perlu tombol manual tambahan. Tidak ada lead yang lenyap dari sistem.
+
+QA Script: Masukkan lead baru, triase ke Qualified, pastikan muncul di Sales Inbox. Cek di DB bahwa handover_eligible=true. Uji skenario alternatif (pilih Option A) untuk verifikasi.
+
+Implemen Halaman & Aksi Hilang (P1–P2):
+
+Account Creation: Buat halaman /crm/accounts/new (atau modal) pada Accounts List. Tombol “Add Account” harus memanggil POST /api/crm/accounts dengan body (name, owner, etc). Hanya role Marketing/Sales sesuai policy yang dapat akses.
+
+Add Contact: Di halaman Account 360 (/crm/accounts/[id]), buat form “Add Contact” yang memanggil POST /api/crm/contacts. Sinkronkan dengan RLS (misal hanya owner account bisa tambah). Update tabel Account 360 menampilkan daftar kontak tersimpan.
+
+Halaman Prospects: Hapus atau repurpose halaman /crm/prospects. Jika dibutuhkan, jadikan halaman list gabungan Lead & Opportunities milik user. Hindari duplikasi fungsi pipeline.
+
+Halaman Imports: Implementasikan manajemen impor data (import_batches). Sediakan upload CSV, preview, dan panggil POST /api/crm/targets untuk masukkan bulk target.
+
+Acceptance: Setiap halaman/button berfungsi, tanpa placeholder kosong. Contoh: klik “Add Contact” mengarah ke form kerja (tidak kosong). Link “Accounts” harus ke halaman yang benar (bukan pipeline).
+
+QA: Tes semua tautan/CTA yang sebelumnya bermasalah (Add Account, Add Contact, Import, dll). Cek di DB bahwa akun/ kontak baru tercipta sesuai input.
+
+Sesuaikan Query UI dengan Status (P1):
+
+Tugas: Update query lead di halaman Lead Inbox agar mencakup status atau tab sesuai desain: misal pisahkan tab “New/In Review”, “Qualified”, “Nurture”. Tambahkan parameter di GET /api/crm/leads?view= untuk melihat semua status yang relevan. Buat halaman My Leads untuk menampilkan leads yang sudah di-claim oleh user (tetapi belum dikonversi). Di Pipeline, aktifkan view ?view=my_overdue untuk peluang lewat jatuh tempo, dan filter by owner.
+
+Acceptance: Lead Inbox menampilkan tab berbeda berisi status yang benar. Qualified leads tampil (bukan hilang). Sales Inbox / My Leads menampilkan klaim/antrian sesuai status. Pipeline menunjukkan overdue dan filter owner berhasil.
+
+QA: Verifikasi tiap query. Misal, buat beberapa leads dengan status berbeda, lalu akses halaman sesuai tab, pastikan muncul di tempat yang tepat.
+
+Optimasi Alur Kerja (P1):
+
+Tugas: Setelah lead di-claim, otomatis navigasi ke Opportunities atau Account terkait dengan notifikasi toast/link. Saat konversi target ke lead (RPC rpc_target_convert_to_lead), atur handover_eligible=true atau buat langsung Opportunity untuk menghindari lead “tersesat”. Tambah fitur winback otomatis (deteksi akun tak aktif, jalankan workflow nurture).
+
+Acceptance: Setelah klaim, sistem langsung arahkan UI ke opportunity baru dan tampil toast link. Lead hasil konversi target segera siap di-claim (tidak hilang). Workflow nurtur/winback berfungsi sebagai perencanaan.
+
+QA: Simulasikan klaim lead, konversi target, periksa navigasi dan flag. Cek tabel schedule nurture jika perlu.
+
+Perbaikan Error Handling & UX (P2):
+
+Tugas: Tampilkan error RPC (gagal ubah status/stage) sebagai toast atau modal. Validasi input form pada Quick Add dan Convert, tampilkan pesan kesalahan field yang ditolak.
+
+Acceptance: Semua aksi yang gagal memunculkan notifikasi jelas. Contoh: submit form tanpa data wajib menghasilkan pesan di UI, bukan gagal diam.
+
+QA: Coba submit form kosong atau rusak, periksa response UI. Usir bug “UI tidak menangkap error” yang disinggung audit.
+
+Keamanan & Integritas Data (P1):
+
+Tugas: Pindahkan kunci service role dari kode front-end ke server environment (lingkungan build) saja. Harmoniskan peran validasi antara API dan RLS: hapus validasi ganda tidak konsisten. Tambah indeks di kolom yang sering difilter (mis. owner lead) untuk performa. Pastikan patch data (PATCH leads) selalu dicatat di audit log.
+
+Acceptance: Tidak ada lagi service key di klien. Uji coba request sebagai pengguna lain: akses ditolak saat RLS tidak terpenuhi (mis. Marketing mencoba update lead milik Sales). Cek audit table mencatat setiap patch.
+
+QA: Lakukan penetration test sederhana: coba modifikasi lead orang lain dengan token role berbeda. Pastikan query SQL mematuhi RLS.
+
+Refactor Struktur Rute (P3):
+
+Tugas: Konsolidasikan struktur folder route Next.js: gunakan folder (app)/crm/{leads,accounts,contacts,...} konsisten dengan blueprints. Misal, pindahkan app/(protected)/crm/leads ke app/crm/leads. Pastikan setiap entitas punya path kanonik.
+
+Acceptance: Semua route CRM berada di folder yang tepat, tidak ada tumpang tindih (protected) vs (app). Cek ulang link internal tidak error.
+
+QA: Review manually struktur folder, coba akses route di browser/console.
+
+Setiap task di atas dijadikan item dalam PR checklist. Pastikan dokumentasi (komentar kode, perubahan desain) diperbarui sesuai. Tidak boleh ada TODO atau placeholder tersisa—setiap item ambiguitas harus diselesaikan sebelum merge.
+
+7. Risiko & Tradeoff
+
+Kompleksitas Implementasi: Mengotomasi alur handover (Option A) mempermudah pengguna tapi menambah logika backend. Alternatif (membuat page baru untuk Qualified) lebih banyak UI tapi kode lebih sederhana; tim harus memilih jalan tengah sesuai sumber daya.
+
+Kesesuaian RLS vs Kinerja: RLS yang ketat meningkatkan keamanan, namun bisa menambah beban query. Penggunaan indeks dan view materialisasi perlu diukur untuk menghindari lambatnya data fetch.
+
+Keseseragaman UI: Menambahkan banyak halaman (My Leads, Nurture, dll.) memperkaya UX tapi menambah beban pengembangan. Tim harus menyeimbangkan antara menghadirkan semua fitur vs prioritas utama.
+
+Risiko Belum Terdokumentasi: Menghilangkan istilah “qualifier tanpa destinasi” membutuhkan edukasi tim. Glossary dan dokumentasi harus memastikan semua orang paham term baru.
+
+Tradeoff Workflow: Memaksa lead langsung ke Sales Pool bisa mengurangi kontrol manual Marketing, tapi menghindarkan data hilang (masalah audit P0). Keputusan ini diambil demi SSOT yang konsisten.
+
+Dependensi Eksternal: Sistem tergantung Next.js 16 + Supabase. Risiko upgrade harus dipertimbangkan; pastikan versi library up-to-date. Namun, mengikuti tech stack blueprint memudahkan integrasi modul lain.
+
+Perubahan Besar: Restrukturisasi rute dan entitas berisiko menimbulkan bug baru. Rutinitas QA dan code review ketat diperlukan agar migrasi berjalan lancar tanpa regresi.
+
+Secara umum, risiko terbesar adalah data tidak konsisten jika suplaintegrasi SSOT gagal. Oleh karena itu, implementasi harus bertahap dengan pengujian menyeluruh, serta fallback plan untuk rollback jika terjadi masalah.
+
+8. Lampiran
+
+Contoh Query SQL:
+
+SELECT * FROM crm_leads WHERE triage_status IN ('New','In Review') — untuk Lead Inbox.
+
+SELECT * FROM crm_leads WHERE handover_eligible = true — untuk Sales Inbox.
+
+SELECT * FROM crm_opportunities WHERE stage = 'active' — untuk Pipeline Board.
+
+Rute Utama API:
+
+GET /api/crm/leads?view=inbox — daftar New/In Review leads.
+
+PATCH /api/crm/leads/{id}/triage — triase status lead (body: {triage_status:"..."}).
+
+POST /api/crm/contacts — tambah kontak baru (body: {account_id, name, ...}).
+
+(dll sesuai struktur app/api/crm/...).
+
+Mapping State-Destinasi: (lihat tabel di atas).
+
+Skrip QA (Rencana Uji): Contoh urutan:
+
+Lead Workflow: Buat lead baru (via API). Verifikasi di UI Lead Inbox. Triase ke Qualified. Verifikasi muncul di Sales Inbox. Klaim lead sebagai Sales. Verifikasi tampil di My Leads (laman leads sales). Konversi ke Opportunity. Verifikasi lead hilang dari semua daftar dan muncul di Pipeline.
+
+Account/Contact: Buat account lewat UI. Verifikasi di DB dan halaman Accounts. Tambah kontak di akun tersebut. Verifikasi kontak muncul dan terkait dengan account.
+
+Target Import: Upload file target CSV lewat UI. Verifikasi target tercipta di DB dan muncul di halaman Prospects.
+
+RLS Security: Coba akses data yang tidak berhak melalui browser langsung (tanpa header auth). Pastikan tidak mendapat data (null). Uji query RLS dengan role berbeda.
+
+Lampiran berisi potongan/petunjuk teknis di atas sebagai referensi cepat bagi tim.
+
+Sumber: Semua keputusan di dokumen ini merujuk langsung pada temuan audit “UGC-BCP CRM Audit Report 2026-01-12” dan pedoman arsitektur (blueprint) UGC, sehingga menyelesaikan semua issue P0/P1 yang diidentifikasi (qualified leads disappear, CTA mati, halaman kosong, API/RLS mismatch, work queue parsial, dsb.). Dokumen ini menjadi single source of truth bagi tim pengembang untuk implementasi SSOT CRM.

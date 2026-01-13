@@ -1,0 +1,433 @@
+## 0) Kompas Produk yang Tidak Boleh Dibengkokin
+
+Targetnya bukan “bisa input data”. Targetnya: **visibilitas bisnis end-to-end yang trusted**, dengan cara kerja user tetap ringan.
+
+Prinsip yang harus konsisten di semua modul:
+
+* **Single source of truth = Postgres + RLS.** UI cuma “view + action”.
+* **Write lewat BFF (Route Handlers)**, read boleh direct (kalau aman), tapi dashboard agregasi sebaiknya via server (RSC) biar hemat query dan konsisten. 
+* **Tidak ada double entry.** Kalau data bisa diturunin dari event/action user yang sudah terjadi (buat lead, update status, kirim pesan ticket, input invoice), ya turunin. Jangan minta user input ulang.
+* **Semua lifecycle harus “anti-nyangkut”**: status jelas, transisi jelas, timestamp kebentuk otomatis.
+
+---
+
+## 1) Rekomendasi Arsitektur Paling Efisien: **Hybrid DB-first**
+
+Ini pilihan yang paling waras untuk Next.js 16 + Supabase kalau goal-nya “ringan dipakai tapi data valid”.
+
+### 1.1 Kenapa Hybrid DB-first
+
+* **DB-first** untuk: dedup identity, ID generation, lifecycle timestamps, masking view, perhitungan agregasi, scoping akses (RLS).
+* **App (BFF)** untuk: orkestrasi flow lintas tabel (atomic), parsing import file, upload file ke Storage, revalidate cache.
+
+DB sudah punya pondasi kuat:
+
+* **ID generator**: `id_sequences` + function `next_prefixed_id` (dipakai trigger lead/ticket/invoice). (lihat `00_schema.sql`)
+* **Dedup**: `find_or_create_customer()` + `find_or_create_prospect()` (lihat `00_schema.sql`)
+* **RLS lengkap** per tabel (lihat `02_rls.sql`)
+* **Views** untuk masking + response time + KPI agregasi + AR aging + DSO rolling (lihat `03_views.sql`)
+
+Kalau ini dimaksimalkan, dev tidak perlu bikin “business logic” duplikat di frontend.
+
+---
+
+## 2) Baseline Eksekusi DB (Wajib Tertib)
+
+### 2.1 Urutan migrasi (jangan asal)
+
+Jalankan/commit migrasi dalam urutan:
+
+1. `00_schema.sql`
+2. `01_seed.sql`
+3. `02_rls.sql`
+4. `03_views.sql`
+5. `04_tests.sql`
+
+Tujuannya: types/enum ada dulu, table/trigger ada dulu, seed masuk, baru RLS, baru views, baru tests.
+
+### 2.2 Storage buckets (jangan ditunda)
+
+Buat buckets yang sudah direferensikan di schema:
+
+* `ticket-attachments`
+* `kpi-evidence`
+* `prospect-evidence`
+* `customer-documents`
+* `import-files`
+
+Tanpa ini, fitur “ringan” (upload bukti, import) jadi ngeselin karena error di ujung.
+
+---
+
+## 3) Pola Implementasi Wajib (Cross-cutting)
+
+Bagian ini yang bikin sistem “seamless” dan scalable secara operasional.
+
+### 3.1 Semua mutation harus punya 4 properti
+
+1. **Atomic**: tidak ada state setengah jadi (lead kebentuk tapi prospect kosong, ticket kebentuk tapi relasi null, dsb).
+2. **Idempotent**: retry tidak bikin duplikat.
+3. **Auditable**: minimal ada jejak siapa ngubah apa dan kapan.
+4. **RLS-safe**: backend tidak “mengakali” policy.
+
+### 3.2 Cara paling efisien untuk atomic + idempotent: pakai RPC transaksi untuk flow inti
+
+Yang paling penting: **Create Lead (dedup + prospect + optional RFQ)**.
+
+Rekomendasi: buat 1 RPC `crm_create_lead_bundle(payload jsonb)`:
+
+* insert lead (biarkan trigger generate `lead_id`)
+* call `find_or_create_customer(...)` → dapet `customer_id`
+* call `find_or_create_prospect(customer_id, owner_user_id)` → dapet `prospect_id`
+* update lead set `customer_id`, `prospect_id`
+* kalau toggle RFQ aktif dan field minimum lengkap → insert `tickets` (type `inquiry tariff`, set `need_customer_masking=true`, set `related_lead_id`, `related_customer_id`)
+* return `{ lead_id, customer_id, prospect_id, ticket_id? }`
+
+Keuntungan:
+
+* user cuma isi sekali.
+* sistem auto-link.
+* tidak ada “ping-pong ownership”.
+
+Blueprint memang mengarahkan flow seperti itu. 
+
+### 3.3 Audit trail paling murah perawatan: trigger audit (bukan manual di tiap route)
+
+Table `audit_logs` sudah ada. Skema mendukung before/after. 
+
+Implementasi efisien:
+
+* bikin function `audit_row_change()` (trigger) yang:
+
+  * `changed_by = auth.uid()`
+  * `action = TG_OP`
+  * `before_data = to_jsonb(OLD)` (kalau UPDATE/DELETE)
+  * `after_data = to_jsonb(NEW)` (kalau INSERT/UPDATE)
+* pasang trigger ke tabel “core mutation”:
+
+  * `leads`, `customers`, `prospects`, `prospect_stage_history`
+  * `sales_activities`, `marketing_activity_events`, `marketing_spend`
+  * `tickets`, `invoices`, `payments`, `kpi_targets`
+    Catatan: `ticket_messages` opsional (volume bisa tinggi). Kalau dipasang pun aman, tapi siap growth tabel.
+
+Ini mengurangi kerja dev dan mengurangi celah “lupa log”.
+
+### 3.4 SLA events: jangan minta user input SLA
+
+Sudah ada `sla_events` table. (lihat schema)
+Yang belum optimal biasanya: eventnya tidak otomatis kebentuk.
+
+Implementasi paling efisien:
+
+* Trigger on `ticket_messages` INSERT:
+
+  * kalau message pertama oleh user selain `tickets.created_by` → insert `sla_events(event_type='FIRST_RESPONSE')`
+* Trigger on `tickets` UPDATE:
+
+  * setiap status change → insert `sla_events(event_type='STATUS_CHANGE', metadata={from,to})`
+  * saat closed → insert `sla_events(event_type='RESOLVED')`
+
+Hasilnya: dashboard SLA jalan tanpa user kerja ekstra.
+
+### 3.5 Import yang bener: “upload sekali, retry aman, error per baris”
+
+DB sudah punya `imports` dan `import_rows`. 
+Gunakan pattern ini, jangan bikin import “langsung insert tabel target” tanpa staging.
+
+Flow teknis yang efisien:
+
+* `/api/imports` buat record `imports` + upload file ke `import-files`
+* parse file di server, simpan **semua row_data** ke `import_rows` (bulk insert)
+* call RPC `process_import_<module>(import_id)`:
+
+  * baca `import_rows`
+  * validasi + insert/update tabel target
+  * update `imports.success_rows/error_rows/status/processed_at`
+* UI tinggal baca progress dari `imports`
+
+Retry tinggal panggil `process_import_<module>` lagi. Tidak perlu user upload ulang.
+
+---
+
+## 4) Panduan Implementasi per Modul (Best Implementation, Efisiensi Maksimal)
+
+### A) CRM (Leads → Customer → Prospect → Activity)
+
+**Verdict desain saat ini**: pondasi data bagus (relasi + dedup function + RLS), tapi flow harus dipaksa jadi **1 aksi user = auto-link lengkap**.
+
+**Pendekatan terpilih**: **Hybrid DB-first** (RPC untuk bundle flow).
+
+#### Fitur CRM-1: Create Lead + auto-link customer/prospect
+
+* **Best implementation**: RPC `crm_create_lead_bundle()`
+* **Pattern**: atomic transaction + dedup via DB function (bukan di JS)
+* **Acceptance test (PASS)**:
+
+  * input lead dengan NPWP yang sama → customer tidak dobel
+  * lead selalu punya `customer_id` dan `prospect_id` setelah create
+  * sales owner null sebelum handover, terisi setelah assign
+* **Impact metric**:
+
+  * step user turun drastis (isi lead sekali, sistem beresin link)
+  * error “lead orphan” jadi 0
+
+#### Fitur CRM-2: Handover lead ke salesperson (ownership & auditability)
+
+* Gunakan field `sales_owner_user_id` yang sudah ada. 
+* Implement route handler `POST /api/leads/[id]/assign`:
+
+  * cek role marketing manager / sales manager sesuai RBAC blueprint
+  * update `sales_owner_user_id`
+  * opsional: auto-create `prospect` untuk owner baru (pakai `find_or_create_prospect`)
+* Acceptance test:
+
+  * salesperson hanya lihat lead yang di-assign ke dia (RLS harus membatasi)
+  * sales manager bisa lihat team scope (lihat catatan “team scoping” di bawah)
+
+#### Fitur CRM-3: Activity logging tanpa dobel input
+
+Tabel activity sudah ada:
+
+* `sales_activities` (visit/call/meeting/email/wa outbound)
+* `marketing_activity_events`
+
+Efisiensi yang disarankan:
+
+* jangan bikin form aktivitas terpisah yang panjang.
+* activity dibuat dari aksi yang user sudah lakukan:
+
+  * contoh: saat update stage prospect → auto insert `prospect_stage_history`
+  * saat create ticket dari prospect → auto log activity “RFQ created”
+    Kalau tetap perlu manual log (visit butuh bukti), keep minimal fields, enforce di app (foto+GPS) karena schema memang mengarah kesana.
+
+---
+
+### B) Ticketing (SLA + Response Time + Auto-link CRM)
+
+**Verdict**: struktur tabel dan views sudah siap, tinggal bikin write-path dan otomatisasi SLA events.
+
+**Pendekatan terpilih**: **Hybrid DB-first**.
+
+#### Fitur TCK-1: Create ticket (4 jenis fixed)
+
+Tabel `tickets` sudah set default status via trigger. Bagus.
+Best practice:
+
+* Route handler `POST /api/tickets`
+* Minimal payload per ticket_type, sisanya optional
+* Jangan biarkan client set `ticket_id` (biar trigger).
+
+Acceptance test:
+
+* `inquiry tariff` otomatis `inquiry_status=OPEN`
+* selain itu otomatis `ticket_status=OPEN`
+* ops dept hanya lihat ticket yang dept_target sesuai (RLS)
+
+#### Fitur TCK-2: Inquiry masking untuk Ops (RFQ dari lead)
+
+View `v_ops_rfqs_masked` sudah ada. (lihat `03_views.sql`)
+Implementasinya simpel:
+
+* di flow `crm_create_lead_bundle`, kalau auto-create RFQ → set `need_customer_masking=true`, set `related_lead_id`
+* ops UI untuk RFQ gunakan view itu, bukan table `tickets` langsung
+
+Acceptance test:
+
+* ops buka RFQ: company_name “MASKED”
+* sales/marketing tetap bisa lihat PII via tickets biasa (sesuai RLS)
+
+#### Fitur TCK-3: SLA + first response time
+
+View `v_ticket_first_response` dan median daily sudah ada. (lihat `03_views.sql`)
+Supaya robust, tambahkan trigger `sla_events` seperti di atas.
+
+Acceptance test:
+
+* ticket tanpa reply → first_response null
+* begitu ada reply dari non-creator → first_response muncul, SLA event kebentuk
+
+---
+
+### C) KPI/Performance (metric → target → assign → update → audit)
+
+**Verdict**: definisi metric sudah disediakan lengkap di seed `kpi_metric_definitions`. Bagian yang biasanya bikin sistem “berat” adalah storage untuk manual/imported actuals dan cara hitungnya.
+
+**Pendekatan terpilih**: **DB-first untuk agregasi + satu service layer untuk mapping metric_key**.
+
+#### Fitur KPI-1: Target setting & assignment
+
+Gunakan `kpi_targets`. Sudah oke. 
+Best implementation:
+
+* Route handler `POST /api/kpi/targets`:
+
+  * validasi overlap period (jangan dobel target untuk metric+assignee+period)
+  * enforce role: marketing manager / sales manager / super admin
+* Tambahkan unique constraint **teknis** (tidak nambah beban user):
+
+  * `(metric_key, assignee_user_id, period_start, period_end)` unique
+
+Acceptance test:
+
+* target dobel untuk period sama → ditolak
+* director read-only (RLS/UI)
+
+#### Fitur KPI-2: Actual KPI untuk MANUAL/IMPORTED (tanpa kerja ekstra)
+
+Saat ini belum ada tabel generik “kpi actual entry”. Kalau dipaksakan pakai `marketing_activity_events` untuk semua, nanti mappingnya ribet dan rawan salah.
+
+Rekomendasi paling efisien (dan justru bikin user lebih ringan):
+
+* Tambah tabel **internal** `kpi_entries`:
+
+  * `metric_key`, `entry_date`, `assignee_user_id`, `value`, `source (MANUAL|IMPORTED)`, `notes`, `created_by`, `created_at`
+    Ini bukan field tambahan di form baru; ini storage yang rapih untuk input yang memang sudah direncanakan di KPI module.
+
+Acceptance test:
+
+* input KPI manual muncul sebagai progress tanpa perlu input lain
+* import KPI actual cukup upload file, sistem masuk ke kpi_entries
+
+#### Fitur KPI-3: AUTO metrics dari data internal
+
+AUTO metrics ambil dari views yang sudah ada:
+
+* marketing leads by channel, spend, CPL
+* sales revenue, new logos, activities
+* ticket first response median
+* DSO rolling 30, AR aging
+
+Best implementation:
+
+* bikin 1 layer `lib/kpi/compute.ts` yang mapping `metric_key -> query fn`
+* query fn untuk AUTO selalu baca dari view (bukan join mentah), kecuali butuh custom filter per assignee.
+
+Acceptance test:
+
+* period filter konsisten untuk semua metric
+* metric yang “NA” (win rate, cycle days tanpa deal table) ditandai NA, bukan diisi angka ngarang
+
+---
+
+### D) AR/DSO (Aging, overdue, controlling, integrated)
+
+**Verdict**: views sudah sangat membantu. Yang harus dijaga: scoping dan write flow finance harus simple.
+
+**Pendekatan terpilih**: **DB-first reporting** (views) + BFF untuk write.
+
+#### Fitur DSO-1: Invoice create & payment record
+
+Tables: `invoices`, `payments`. Views: `v_invoice_outstanding`, `v_ar_aging`, `v_dso_rolling_30`. (lihat `03_views.sql`)
+Best implementation:
+
+* `POST /api/invoices` (finance only) → insert invoices (biar trigger generate invoice_id)
+* `POST /api/payments` (finance only) → insert payment
+
+Acceptance test:
+
+* outstanding amount turun sesuai payment
+* overdue flag benar berdasarkan due_date
+* rolling DSO berubah sesuai data
+
+#### Fitur DSO-2: Sales scoped view “my customers AR”
+
+RLS sudah mengarah: sales bisa read invoice kalau customer ada di prospects mereka.
+Pastikan UI sales selalu query lewat join yang memicu RLS tersebut (misal query view yang join customers).
+
+Tambahan efisiensi controlling tanpa nambah kerja:
+
+* quick action “Create Collection Ticket” dari DSO page:
+
+  * create `tickets` type `general request` dept_target `FIN`
+  * set `related_customer_id`
+    Ini bukan modul baru, bukan field wajib baru. Cuma shortcut untuk kasus overdue.
+
+---
+
+## 5) Team Scoping (Tanpa nambah role/module)
+
+Blueprint minta “sales manager = team scope”. Di schema ada `profiles.manager_user_id` dan `dept_code`. 
+
+Cara paling efisien tanpa bikin tabel baru:
+
+* gunakan `profiles.manager_user_id` untuk hubungan manager → anggota tim
+* update RLS “sales manager read team” di tabel yang perlu scope (leads/prospects/customers/invoices) dengan kondisi:
+
+  * row owner_user_id in (select user_id from profiles where manager_user_id = auth.uid())
+
+Ini admin-only setup, bukan kerja harian user. Sekali mapping beres, semua modul otomatis ngikut.
+
+---
+
+## 6) Route Handlers yang Minimal tapi Complete (BFF layer)
+
+Saran struktur endpoint (sesuai blueprint) :
+
+**CRM**
+
+* `POST /api/leads` → call RPC `crm_create_lead_bundle`
+* `PATCH /api/leads/[lead_id]` → update fields yang diizinkan
+* `POST /api/leads/[lead_id]/assign` → assign sales_owner_user_id (+ ensure prospect)
+
+**Ticketing**
+
+* `POST /api/tickets`
+* `PATCH /api/tickets/[ticket_id]` (status transitions, assign)
+* `POST /api/tickets/[ticket_id]/messages`
+* `POST /api/tickets/[ticket_id]/attachments`
+
+**KPI**
+
+* `POST /api/kpi/targets`
+* `POST /api/kpi/entries` (manual)
+* `POST /api/kpi/import` (import actual → imports/import_rows → process RPC)
+* `POST /api/kpi/evidence` (upload to bucket, store url to kpi_evidence atau kpi_entries notes)
+
+**Imports (generic)**
+
+* `POST /api/imports` create import + upload file
+* `POST /api/imports/[id]/process` run module processor RPC
+
+**DSO**
+
+* `POST /api/invoices`
+* `POST /api/payments`
+* (opsional) `POST /api/dso/import` untuk invoice/payment bulk (pattern sama)
+
+---
+
+## 7) Acceptance Criteria Checklist (Developer PASS/FAIL)
+
+Ini definisi “Business Command Center yang ringan dipakai” dalam bentuk tes.
+
+### KPI
+
+* Target tidak bisa dobel period/assignee/metric.
+* AUTO metric benar-benar auto dari data internal (views).
+* MANUAL/IMPORTED masuk ke storage yang konsisten (disarankan `kpi_entries`).
+* Ada audit trail untuk perubahan target dan input.
+
+### CRM
+
+* Create lead selalu auto-link customer+prospect.
+* Dedup jalan (NPWP/email/phone/company).
+* Handover ke sales tidak bikin data pecah.
+* Activity tidak dobel input dan tetap auditable.
+
+### Ticketing
+
+* SLA first response valid (view + sla_events).
+* Status lifecycle anti-nyangkut.
+* RFQ masking ke Ops valid via `v_ops_rfqs_masked`.
+
+### AR/DSO
+
+* Outstanding, overdue, aging buckets valid.
+* Sales hanya lihat AR customer yang dia own (RLS).
+* Finance write flow simpel (invoice + payment), tidak ada rework kalau retry.
+
+### Import
+
+* Import retry idempotent: process ulang tidak bikin duplikat.
+* Error per baris tercatat di `import_rows`, bukan “gagal total”.
+

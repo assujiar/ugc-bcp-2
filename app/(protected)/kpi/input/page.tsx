@@ -169,9 +169,9 @@ export default function KpiInputPage() {
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="h-12 w-12 text-warning mb-4" />
         <p className="text-lg font-medium text-foreground mb-2">Access Denied</p>
-        <p className="text-sm text-muted-foreground">Only marketing users can input KPI data</p>
+        <p className="text-sm text-muted-foreground">Only marketing users can enter performance data</p>
         <Link href="/kpi" className="btn-primary mt-4">
-          Back to KPI
+          Back to Performance
         </Link>
       </div>
     );
@@ -186,9 +186,9 @@ export default function KpiInputPage() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to KPI
+          Back to Performance
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">Manual KPI Input</h1>
+        <h1 className="text-2xl font-bold text-foreground">Performance Updates</h1>
         <p className="text-muted-foreground">Log marketing activities and spend manually</p>
       </div>
 

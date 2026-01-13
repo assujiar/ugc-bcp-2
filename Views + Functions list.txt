@@ -1,0 +1,178 @@
+[
+  {
+    "kind": "function",
+    "name": "app_can_read_customer"
+  },
+  {
+    "kind": "function",
+    "name": "app_can_read_invoice"
+  },
+  {
+    "kind": "function",
+    "name": "app_can_read_lead"
+  },
+  {
+    "kind": "function",
+    "name": "app_can_read_prospect"
+  },
+  {
+    "kind": "function",
+    "name": "app_can_read_ticket"
+  },
+  {
+    "kind": "function",
+    "name": "app_can_write_ticket"
+  },
+  {
+    "kind": "function",
+    "name": "app_current_dept"
+  },
+  {
+    "kind": "function",
+    "name": "app_current_role"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_any_role"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_authenticated"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_director"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_marketing"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_my_team_member"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_ops"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_role"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_sales"
+  },
+  {
+    "kind": "function",
+    "name": "app_is_super_admin"
+  },
+  {
+    "kind": "function",
+    "name": "audit_row_change"
+  },
+  {
+    "kind": "function",
+    "name": "crm_create_lead_bundle"
+  },
+  {
+    "kind": "function",
+    "name": "find_or_create_customer"
+  },
+  {
+    "kind": "function",
+    "name": "find_or_create_prospect"
+  },
+  {
+    "kind": "function",
+    "name": "next_prefixed_id"
+  },
+  {
+    "kind": "function",
+    "name": "next_seq"
+  },
+  {
+    "kind": "function",
+    "name": "trg_customer_id"
+  },
+  {
+    "kind": "function",
+    "name": "trg_invoice_id"
+  },
+  {
+    "kind": "function",
+    "name": "trg_lead_id"
+  },
+  {
+    "kind": "function",
+    "name": "trg_prospect_id"
+  },
+  {
+    "kind": "function",
+    "name": "trg_prospect_stage_change"
+  },
+  {
+    "kind": "function",
+    "name": "trg_sla_first_response"
+  },
+  {
+    "kind": "function",
+    "name": "trg_ticket_id"
+  },
+  {
+    "kind": "function",
+    "name": "trg_tickets_updated_at"
+  },
+  {
+    "kind": "view",
+    "name": "v_ar_aging"
+  },
+  {
+    "kind": "view",
+    "name": "v_dso_rolling_30"
+  },
+  {
+    "kind": "view",
+    "name": "v_invoice_outstanding"
+  },
+  {
+    "kind": "view",
+    "name": "v_marketing_cpl_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_marketing_leads_by_channel_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_marketing_spend_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_my_customers_ar"
+  },
+  {
+    "kind": "view",
+    "name": "v_ops_rfqs_masked"
+  },
+  {
+    "kind": "view",
+    "name": "v_sales_activities_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_sales_new_logos_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_sales_revenue_daily"
+  },
+  {
+    "kind": "view",
+    "name": "v_ticket_first_response"
+  },
+  {
+    "kind": "view",
+    "name": "v_ticket_first_response_median_daily"
+  }
+]

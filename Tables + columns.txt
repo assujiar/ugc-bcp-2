@@ -1,0 +1,1913 @@
+[
+  {
+    "jsonb_agg": [
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('audit_logs_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "table_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "record_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "action",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "changed_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "changed_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "jsonb",
+            "column": "before_data",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "jsonb",
+            "column": "after_data",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "inet",
+            "column": "ip_address",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "user_agent",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "audit_logs"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "company_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "npwp",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "pic_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "pic_phone",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "pic_email",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "address",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "city",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "country",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "customers"
+      },
+      {
+        "columns": [
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_code",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "dept_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "departments"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "prefix",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "date_part",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "column": "last_seq",
+            "default": "0",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "id_sequences"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('import_rows_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "bigint",
+            "column": "import_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "integer",
+            "column": "row_number",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "jsonb",
+            "column": "row_data",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "error_message",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "import_rows"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "import_id",
+            "default": "nextval('imports_import_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "module",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "file_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "file_url",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "integer",
+            "column": "total_rows",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "integer",
+            "column": "success_rows",
+            "default": "0",
+            "nullable": "YES"
+          },
+          {
+            "type": "integer",
+            "column": "error_rows",
+            "default": "0",
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "status",
+            "default": "'UPLOADED'::import_status",
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "uploaded_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "uploaded_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "processed_at",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "imports"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "invoice_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "invoice_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "due_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "column": "invoice_amount",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "currency",
+            "default": "'IDR'::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "invoices"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "metric_key",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "owner_role",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "unit",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "calc_method",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "direction",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "description",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "kpi_metric_definitions"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('kpi_targets_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "metric_key",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "period_start",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "period_end",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "assignee_user_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "target_value",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "kpi_targets"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "lead_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "lead_date",
+            "default": "CURRENT_DATE",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "company_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "pic_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "contact_phone",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "email",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "city_area",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "service_code",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "route",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "est_volume_value",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "est_volume_unit",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "timeline",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "sourced_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "primary_channel",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "campaign_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "sales_owner_user_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "prospect_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "status",
+            "default": "'New'::lead_status",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "next_step",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "due_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "leads"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('marketing_activity_events_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "activity_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "channel",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "date",
+            "column": "activity_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "column": "quantity",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "marketing_activity_events"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('marketing_spend_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "channel",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "spend_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "column": "amount",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "campaign_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "marketing_spend"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "payment_id",
+            "default": "nextval('payments_payment_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "invoice_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "date",
+            "column": "payment_date",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "numeric",
+            "column": "amount",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "payment_method",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "reference_no",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "payments"
+      },
+      {
+        "columns": [
+          {
+            "type": "uuid",
+            "column": "user_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "user_code",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "full_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "role_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_code",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "manager_user_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "profiles"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('prospect_stage_history_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "prospect_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "from_stage",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "to_stage",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "changed_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "changed_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "prospect_stage_history"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "prospect_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "owner_user_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "current_stage",
+            "default": "'Prospect Created'::prospect_stage",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "prospects"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "role_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "roles"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "activity_id",
+            "default": "nextval('sales_activities_activity_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "prospect_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "activity_type",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "notes",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "evidence_photo_url",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "gps_lat",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "gps_lng",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "sales_activities"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "view_id",
+            "default": "nextval('saved_views_view_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "module",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "view_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "jsonb",
+            "column": "filter_json",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "boolean",
+            "column": "is_default",
+            "default": "false",
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "saved_views"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "service_code",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "service_name",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "owner_dept",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "scope_group",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "service_catalog"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "id",
+            "default": "nextval('sla_events_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "event_type",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "event_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "jsonb",
+            "column": "metadata",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "sla_events"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "attachment_id",
+            "default": "nextval('ticket_attachments_attachment_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "file_url",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "file_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "file_size",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "uploaded_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "uploaded_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "ticket_attachments"
+      },
+      {
+        "columns": [
+          {
+            "type": "bigint",
+            "column": "message_id",
+            "default": "nextval('ticket_messages_message_id_seq'::regclass)",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "message",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          }
+        ],
+        "table_name": "ticket_messages"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "ticket_type",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "inquiry_status",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "ticket_status",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_target",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "service_code",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "uuid",
+            "column": "assigned_to",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "related_lead_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "related_customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "subject",
+            "default": null,
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "description",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "origin_address",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "origin_city",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "origin_country",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "destination_address",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "destination_city",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "destination_country",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "cargo_category",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "cargo_qty",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "cargo_dimensions",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "cargo_weight",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "scope_of_work",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "boolean",
+            "column": "need_customer_masking",
+            "default": "false",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "column": "close_reason",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "competitor_rate",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "customer_budget",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "updated_at",
+            "default": "now()",
+            "nullable": "NO"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "closed_at",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "tickets"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "ar_total",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_1_30",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_31_60",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_61_90",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_90_plus",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_ar_aging"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "as_of_date",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "ar_outstanding",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "revenue_30",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "dso_days_rolling_30",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_dso_rolling_30"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "invoice_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "date",
+            "column": "invoice_date",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "date",
+            "column": "due_date",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "invoice_amount",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "paid_amount",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "outstanding_amount",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "boolean",
+            "column": "is_overdue",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "integer",
+            "column": "days_past_due",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_invoice_outstanding"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "primary_channel",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "spend_idr",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "leads_count",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "cpl_idr",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_marketing_cpl_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "primary_channel",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "leads_count",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_marketing_leads_by_channel_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "primary_channel",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "spend_idr",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_marketing_spend_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "company_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "ar_total",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_1_30",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_31_60",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_61_90",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "bucket_90_plus",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_my_customers_ar"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "ticket_type",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "inquiry_status",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_target",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "assigned_to",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "related_lead_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "related_customer_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "subject",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "description",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "service_code",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "created_at",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "closed_at",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "boolean",
+            "column": "is_masked",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_company_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_pic_name",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_pic_phone",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "column": "customer_pic_email",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_ops_rfqs_masked"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "user_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "activity_type",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "activity_count",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_sales_activities_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "new_logos",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_sales_new_logos_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "revenue_idr",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "active_customers",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_sales_revenue_daily"
+      },
+      {
+        "columns": [
+          {
+            "type": "text",
+            "column": "ticket_id",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "ticket_type",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_target",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "created_by",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "uuid",
+            "column": "assigned_to",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "ticket_created_at",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "timestamp with time zone",
+            "column": "first_response_at",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "numeric",
+            "column": "first_response_minutes",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_ticket_first_response"
+      },
+      {
+        "columns": [
+          {
+            "type": "date",
+            "column": "day",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "ticket_type",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "USER-DEFINED",
+            "column": "dept_target",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "double precision",
+            "column": "median_first_response_minutes",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "bigint",
+            "column": "ticket_count",
+            "default": null,
+            "nullable": "YES"
+          }
+        ],
+        "table_name": "v_ticket_first_response_median_daily"
+      }
+    ]
+  }
+]

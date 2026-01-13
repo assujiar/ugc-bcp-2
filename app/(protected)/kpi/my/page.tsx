@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/contexts/user-context";
-import { fetchKpiTargets } from "@/lib/api";
+import { fetchKpiTargets, fetchKpiProgress, KpiProgress } from "@/lib/api";
 import {
   ArrowLeft,
   Loader2,
@@ -14,8 +14,10 @@ import {
   CheckCircle,
   Upload,
   Calendar,
+  Edit3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { pageLabels, navLabels } from "@/lib/terminology/labels";
 
 interface KpiTarget {
   id: number;
@@ -25,18 +27,15 @@ interface KpiTarget {
   target_value: number;
   assignee_user_id: string | null;
   created_at: string;
+  metric?: {
+    metric_key: string;
+    owner_role: string;
+    unit: string;
+    calc_method: string;
+    direction: string;
+    description: string;
+  };
 }
-
-// Sample achievement data (would come from API)
-const SAMPLE_ACHIEVEMENTS: Record<string, number> = {
-  SALES_REVENUE: 2500000000,
-  SALES_NEW_LOGOS: 12,
-  SALES_ACTIVITY_VISIT: 45,
-  SALES_ACTIVITY_CALL: 180,
-  MKT_LEADS_BY_CHANNEL: 85,
-  DGO_SOCIAL_POSTS: 25,
-  VSDO_DIGITAL_ASSETS_DELIVERED: 18,
-};
 
 function getProgressColor(percentage: number): string {
   if (percentage >= 100) return "bg-success";
@@ -55,28 +54,56 @@ function getStatusLabel(percentage: number): { label: string; color: string } {
 
 export default function MyKpiPage() {
   const { user } = useUser();
-  
+
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [targets, setTargets] = React.useState<KpiTarget[]>([]);
+  const [progressData, setProgressData] = React.useState<KpiProgress[]>([]);
 
   React.useEffect(() => {
-    async function loadTargets() {
+    async function loadData() {
       setLoading(true);
-      const result = await fetchKpiTargets({
-        assignee_user_id: user?.user_id || undefined,
-      });
-      if (result.error) {
-        setError(result.error);
-      } else if (result.data) {
-        setTargets((result.data as { data: KpiTarget[] }).data || []);
+      try {
+        // Fetch targets and progress in parallel
+        const [targetsResult, progressResult] = await Promise.all([
+          fetchKpiTargets({
+            assignee_user_id: user?.user_id || undefined,
+          }),
+          fetchKpiProgress({
+            user_id: user?.user_id || undefined,
+          }),
+        ]);
+
+        if (targetsResult.error) {
+          setError(targetsResult.error);
+        } else if (targetsResult.data) {
+          setTargets((targetsResult.data as { data: KpiTarget[] }).data || []);
+        }
+
+        if (progressResult.data) {
+          setProgressData((progressResult.data as { data: KpiProgress[] }).data || []);
+        }
+      } catch (err) {
+        console.error("Error loading KPI data:", err);
+        setError("Failed to load KPI data");
       }
       setLoading(false);
     }
-    loadTargets();
+
+    if (user?.user_id) {
+      loadData();
+    }
   }, [user?.user_id]);
 
-  // Calculate summary stats
+  // Get actual value for a metric from progress data
+  const getActualValue = (metricKey: string, periodStart: string, periodEnd: string): number => {
+    const progress = progressData.find(
+      (p) => p.metric_key === metricKey && p.period_start === periodStart && p.period_end === periodEnd
+    );
+    return progress?.actual_value ?? 0;
+  };
+
+  // Calculate summary stats using real progress data
   const summaryStats = React.useMemo(() => {
     let achieved = 0;
     let onTrack = 0;
@@ -84,9 +111,9 @@ export default function MyKpiPage() {
     let behind = 0;
 
     targets.forEach((target) => {
-      const achievement = SAMPLE_ACHIEVEMENTS[target.metric_key] || 0;
-      const percentage = target.target_value > 0 
-        ? (achievement / target.target_value) * 100 
+      const achievement = getActualValue(target.metric_key, target.period_start, target.period_end);
+      const percentage = target.target_value > 0
+        ? (achievement / target.target_value) * 100
         : 0;
 
       if (percentage >= 100) achieved++;
@@ -96,7 +123,8 @@ export default function MyKpiPage() {
     });
 
     return { achieved, onTrack, atRisk, behind, total: targets.length };
-  }, [targets]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targets, progressData]);
 
   return (
     <>
@@ -107,10 +135,10 @@ export default function MyKpiPage() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to KPI
+          Back to {navLabels.performance}
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">My KPI</h1>
-        <p className="text-muted-foreground">Track your personal KPI progress</p>
+        <h1 className="text-2xl font-bold text-foreground">{pageLabels.myPerformance.title}</h1>
+        <p className="text-muted-foreground">{pageLabels.myPerformance.subtitle}</p>
       </div>
 
       {/* Summary Cards */}
@@ -122,7 +150,7 @@ export default function MyKpiPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{summaryStats.total}</p>
-              <p className="text-xs text-muted-foreground">Total KPIs</p>
+              <p className="text-xs text-muted-foreground">Total Metrics</p>
             </div>
           </div>
         </div>
@@ -184,16 +212,17 @@ export default function MyKpiPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">Loading KPIs...</span>
+          <span className="ml-3 text-muted-foreground">Loading metrics...</span>
         </div>
       ) : targets.length > 0 ? (
         <div className="space-y-4">
           {targets.map((target) => {
-            const achievement = SAMPLE_ACHIEVEMENTS[target.metric_key] || 0;
-            const percentage = target.target_value > 0 
-              ? Math.round((achievement / target.target_value) * 100) 
+            const achievement = getActualValue(target.metric_key, target.period_start, target.period_end);
+            const percentage = target.target_value > 0
+              ? Math.round((achievement / target.target_value) * 100)
               : 0;
             const status = getStatusLabel(percentage);
+            const isManual = target.metric?.calc_method === "MANUAL" || target.metric?.calc_method === "IMPORTED";
 
             return (
               <div key={target.id} className="card">
@@ -205,6 +234,14 @@ export default function MyKpiPage() {
                       <span className={cn("text-sm font-medium", status.color)}>
                         {status.label}
                       </span>
+                      {target.metric?.calc_method && (
+                        <span className={cn(
+                          "badge text-xs",
+                          target.metric.calc_method === "AUTO" ? "badge-info" : "badge-warning"
+                        )}>
+                          {target.metric.calc_method}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -212,14 +249,18 @@ export default function MyKpiPage() {
                         {new Date(target.period_start).toLocaleDateString("id-ID")} -{" "}
                         {new Date(target.period_end).toLocaleDateString("id-ID")}
                       </span>
+                      <span className="text-xs text-muted-foreground/70">
+                        {target.metric?.unit || ""}
+                      </span>
                     </div>
-                    
+
                     {/* Progress Bar */}
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-muted-foreground">Progress</span>
                         <span className="font-medium text-foreground">
                           {achievement.toLocaleString()} / {target.target_value.toLocaleString()}
+                          {target.metric?.unit && ` ${target.metric.unit}`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
@@ -237,6 +278,12 @@ export default function MyKpiPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {isManual && (
+                      <Link href="/kpi/progress" className="btn-outline text-sm">
+                        <Edit3 className="h-4 w-4 mr-1" />
+                        Update
+                      </Link>
+                    )}
                     <button className="btn-outline text-sm">
                       <Upload className="h-4 w-4 mr-1" />
                       Evidence
@@ -250,9 +297,9 @@ export default function MyKpiPage() {
       ) : (
         <div className="card text-center py-12">
           <Target className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-lg font-medium text-foreground mb-1">No KPI Targets Assigned</p>
+          <p className="text-lg font-medium text-foreground mb-1">No Performance Targets Assigned</p>
           <p className="text-sm text-muted-foreground">
-            Contact your manager to set KPI targets for you
+            Contact your manager to set performance targets for you
           </p>
         </div>
       )}

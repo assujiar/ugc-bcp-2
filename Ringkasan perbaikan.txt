@@ -1,0 +1,192 @@
+Ringkasan Eksekutif
+Berdasarkan blueprint dan struktur schema, UGC Integrated Dashboard mencakup modul KPI, CRM, Ticketing, DSO/AR sebagaimana direncanakan. Data utama disimpan di tabel PostgreSQL (mis. leads, customers, prospects, tickets, invoices, payments, kpi_metric_definitions, kpi_targets dll) dan sebagian diolah via views sesuai blueprint (mis. KPI via agregasi, SLA via sla_events). Flows antar-modul mengikuti desain: misalnya penambahan lead otomatis membuat customer dan prospect baru, serta ticket inquiry (RFQ) dapat ter-auto-link ke lead/customer terkait. Temuan penting: definisi RLS (row-level security) dan prosedur deduplikasi yang disebutkan blueprint tidak tampak di schema saat ini. Selain itu, status “paid” atau umur piutang eksplisit belum ada di data model, sehingga perhitungan aging/DSO masih harus via query manual. Secara umum, struktur tabel untuk metrik KPI (ada tabel definisi dan target), CRM (tabel leads, prospects, customers dan activity logs), ticketing (tabel tickets, sla_events, attachments, messages), serta AR (tabel invoices, payments) sudah ada. Namun implementasi end-to-end sebagian masih mengandalkan view yang perlu dibangun (mis. “v_ops_rfqs_masked”, “v_ticket_first_response”, “outstanding aging”). Bulk import sudah diakomodasi oleh tabel imports/import_rows, dan perubahan manual di-log ke audit_logs sesuai blueprint. Skor Kesiapan (per domain, maksimal 5):
+KPI: 4/5 – Metric definitions, targets, assignee dan audit trail lengkap; namun belum terlihat mekanisme update realisasi metrik (data value) terpisah.
+CRM: 5/5 – Alur leads → prospects → customers ada (kolom customer_id/prospect_id pada leads), tabel leads, customers, prospects, dan log aktivitas penjualan (sales_activities) tersedia; integrasi antar-entitas lengkap.
+Ticketing: 3/3 – Tabel tickets mencakup jenis, status, penugasan, relasi lead/customer dan timestamps (created_at, closed_at); tabel sla_events merekam event SLA. Auto-link ke CRM (field related_lead_id, related_customer_id) ada.
+AR/DSO: 2/3 – Tabel invoices (dengan due_date) dan payments ada, serta kolom customer_id untuk relasi ke CRM. Namun aging/overdue rule belum eksplisit (perhitungan aging masih via perhitungan sebaran tanggal), dan status pelunasan atau proses rekonsiliasi pembayaran belum ada implementasi.
+Verdict Kesiapan: Sistem mendekati lengkap secara struktur, namun perlu implementasi RLS/skenario keamanan dan beberapa fitur otomatis agar siap Command Center. Temuan kritikal antara lain: tidak ada definisi RLS sesuai blueprint (seharusnya DEFAULT DENY per tabel dengan kebijakan role berdasarkan profiles.role_name), prosedur deduplikasi lead (via NPWP/email/phone/company) tidak ditemukan, serta fitur aging/DSO masih bergantung perhitungan manual alih-alih view terotomasi. Dibutuhkan perhatian khusus untuk RLS/RBAC enforcement dan validasi integritas alur otomatis (mis. pembuatan prospect, pelaporan close_reason pada ticket).
+Pemetaan Alur Modul dan Integrasi Antar Modul
+KPI: Modul ini menggunakan tabel kpi_metric_definitions dan kpi_targets. Pengguna (marketing manager atau sales) dapat membuat definisi metrik (key, owner_role, unit, direction) dan target per periode. Realisasi KPI dihitung otomatis via view dari data internal (mis. pendapatan dari total invoices.invoice_amount) atau via data manual (tabel marketing_activity_events, marketing_spend). Semua perubahan target dan data manual dicatat di audit_logs. Flow: definisi KPI –> assign ke user (kpi_targets.assignee_user_id) –> user update progres (atau import) –> nilai KPI dihitung/diperbarui via query terpusat (sementara belum ada tabel tersendiri) –> audit trail tersimpan.
+CRM (Leads–Prospect–Customer): Saat lead dibuat, sistem otomatis memeriksa apakah customer sudah ada (dedup berdasarkan NPWP/email/telepon/namaperusahaan). Jika belum, buat customer baru; jika prospect belum ada untuk kombinasi customer+owner, buat prospect baru. Tabel leads menyimpan lead_id, customer_id, prospect_id serta owner sales. Alur lanjut: lead ke prospect ke customer mengalir sesuai funnel. Aktivitas sales dicatat di tabel sales_activities (linked ke prospect_id). Konektivitas modul: customer_id dari leads dan tickets menghubungkan ke modul CRM, memungkinkan ticketing melihat informasi pelanggan terkait.
+Ticketing: Pengguna dapat membuat tiket inquiry atau permintaan lainnya. Tiap tickets memiliki ticket_type, ticket_status, dept_target, serta foreign key related_lead_id/related_customer_id (opsional). Ketika opsi RFQ dipilih pada lead, route handler harus membuat tiket baru dengan ticket_type='inquiry tariff', need_customer_masking=true, dan mengisi related_lead_id serta related_customer_id. Tabel sla_events mencatat event status dan waktu (open, first response, close) untuk menghitung respons rata-rata. Siklus tiket: dari OPEN ke IN PROGRESS ke CLOSED (untuk inquiry ada sub-status menunggu respon/customer, dengan close_reason wajib untuk Lost). Integrasi: tiket terkait lead/customer memanfaatkan relasi related_* dan fungsi masking v_ops_rfqs_masked (ops melihat data nama perusahaan ter-mask).
+AR/DSO: Alur keuangan: finance membuat invoice baru di tabel invoices (dilengkapi due_date); kemudian merekam payment di tabel payments. Data utama di-link ke CRM lewat customer_id. Blueprint menghendaki perhitungan aging dan DSO melalui views (bucket overdue, tren DSO), namun saat ini tidak ada tabel view bawaan; logika tersebut harus di-query manual. Cross-link: invoice → customer (CRM) dan invoice → payment (rekonsiliasi). Belum ada status invoice/lunas, sehingga sistem belum otomatis menandai faktur yang dibayar atau menonaktifkan aging calculation.
+Skor Rubrik dan Kesiapan
+Berikut skoring efisiensi dan validitas tiap domain berdasarkan implementasi saat ini:
+KPI (Skor 4/5):
+Metric definitions: Tabel kpi_metric_definitions ada dengan kolom metric_key, owner_role, unit, direction.
+Target assignment: Tabel kpi_targets menyimpan target per periode dengan kolom assignee_user_id (mengacu ke user).
+Update/Tracking: Tidak terlihat tabel atau mekanisme khusus untuk mencatat realisasi per metrik selain agregasi views. Belum ada field progress, sehingga sulit menelusuri perubahan data metrik individual (selain audit_logs).
+Audit trail: Tabel audit_logs ada untuk menyimpan before/after data, sesuai blueprint.
+CRM (Skor 5/5):
+Leads: Tabel leads lengkap dengan id, kontak, status, owner, dan FK ke customers/prospects.
+Prospects: Tabel prospects ada dengan FK ke customers dan owner.
+Customers: Tabel customers ada.
+Activity log: Tabel sales_activities merekam aktivitas terkait prospect_id.
+Linkage: FK antara leads↔prospects/customers dan relasi ke tiket sudah tersedia.
+Ticketing (Skor 3/3):
+SLA lifecycle: Tabel sla_events mencatat event tiap tiket (opened, response, status changes); siklus status tiket sesuai blueprint.
+Timestamps: tickets.created_at, updated_at, closed_at ada.
+Auto-link ke CRM: Kolom related_lead_id dan related_customer_id hadir di tickets.
+AR/DSO (Skor 2/3):
+Aging/Overdue: Belum tersedia field/status atau view khusus untuk aging. Hanya due_date pada invoices dan mekanisme perhitungan harus dilakukan manual berdasarkan tanggal.
+CRM linkage: invoices.customer_id menghubungkan ke tabel customers.
+Reconcile: Tabel payments ada, namun tidak ada penanda otomatis yang menghubungkan pembayaran ke invoice secara final (selain FK); tracking status invoice (lunas/belum) belum ada.
+Total Readiness: Berdasarkan skor, modul CRM dan Ticketing siap (100%), KPI mendekati siap (80%), DSO perlu perbaikan (66%). Rata-rata kesiapan sekitar 86%. Untuk Command Center siap, perlu menuntaskan RLS & keamanan, melengkapi alur otomatis (lead–prospect auto-create, status invoice) dan penghitungan KPI/AR melalui view.
+Rekomendasi Perbaikan (REKOM-XX)
+REKOM-01: Terapkan RLS pada Database. Sebagaimana blueprint mewajibkan aturan akses via RLS, tambahkan policy RLS per tabel (mis. leads, tickets, invoices, dll) berdasarkan auth.uid() dan profiles.role_name. Sebelum: Saat ini tidak ditemukan definisi policy RLS. Sesudah: Setiap tabel hanya mengizinkan operasi sesuai role (mis. hanya owner/prospect yang melihat data leads sendiri, sales manager lihat timnya saja). Dampak UX: tanpa perubahan antarmuka, keamanan terjaga (user tetap melihat data yang sama).
+REKOM-02: Implementasi Fungsi Deduplikasi Lead di DB. Blueprint menyatakan perlu fungsi dedup NPWP/email/telepon, namun tidak terlihat fungsi tersebut di schema. Sebelum: Duplikasi pelanggan mungkin terjadi. Sesudah: Tambahkan fungsi trigger di server (PL/pgSQL atau RPC Supabase) yang memeriksa eksistensi customers berdasarkan kriteria, sebelum insert leads. UX: otomatisasi di backend, user cukup input lead satu kali tanpa overload.
+REKOM-03: Lengkapi Flow Otomatis Lead–Prospect–Customer. Perlu pastikan route handler lead melaksanakan flow auto-create. Sebelum: prospect_id dan customer_id di leads bisa null jika belum diisi manual. Sesudah: Setelah insert lead via API, kembalikan ID lead, customer, prospect sesuai skenario. Ini mengurangi beban user agar tidak perlu memasukkan data ganda.
+REKOM-04: Menambahkan Status Invoice dan View Aging. Untuk memudahkan DSO, tambahkan kolom status (mis. PAID/PENDING) di invoices atau buat view v_invoice_aging yang otomatis menghitung overdue. Sebelum: Pengguna menghitung aging secara manual. Sesudah: User dapat melihat aging/outstanding di dashboard tanpa tindakan ekstra (hanya baca view).
+REKOM-05: Audit Trail Lengkap. Pastikan setiap operasi create/update/import (khususnya di route handlers) menyimpan log di audit_logs. Sebelum: Ada tabel audit_logs, tapi perlu verifikasi kode memanggilnya. Sesudah: Semua perubahan tercatat, mempermudah audit. User tidak perlu input tambahan karena proses otomatis di backend.
+REKOM-06: Mandatory close_reason untuk Ticket Lost. Sesuai blueprint, jika status tiket Closed Lost harus ada alasan. Tambahkan validasi di API agar field close_reason wajib saat menutup tiket dengan status lost. Sebelum: close_reason bisa kosong. Sesudah: Data tiket lebih lengkap, analisis penyebab kehilangan pelanggan jadi akurat. UX: hanya sedikit form tambahan saat tutup tiket lost.
+Implementasi Terbaik per Modul/Fitur
+KPI: Verdict: Definisi dan target KPI sudah tersedia (tabel kpi_metric_definitions, kpi_targets), namun realisasi KPI bergantung pada query runtime. Best Approach: DB-first (analytics) – definisikan metric dan target di DB, hasil KPI dihitung via SQL view atau stored function. Blueprint mengarahkan perhitungan auto (mis. revenue, DSO) dan input manual/import terpisah. Teknis: Simpan metrik/target di tabel, gunakan View Supabase/Materialized View untuk hasil agregasi. Best Practices: Gunakan index pada kolom tanggal (invoice_date) untuk kalkulasi cepat. Acceptance Test: Buat definisi KPI baru, set target, masukkan data (mis. invoice), cek tampilan dashboard menampilkan KPI sesuai rumus. Impact Metric: Akurasi dan ketersediaan data KPI (mis. selisih perhitungan) serta kecepatan query KPI.
+CRM (Leads/Prospect/Customer): Verdict: Struktur tabel lengkap (leads, prospects, customers) dan link (FK) sudah sesuai. Best Approach: DB-first dengan Proxy/API – data masters di DB dengan FK, operasi create/update lewat route handlers. Teknis: Pada insert lead, gunakan transaction di DB (via Supabase RPC) untuk create/fetch customer + prospect sekaligus. Best Practices: Gunakan constraints unik (mis. customer.email unik) untuk mencegah duplikasi. Acceptance Test: Input data lead ganda; pastikan tidak membuat duplikat customer/prospect (idempotent). Impact Metric: Penurunan duplikasi data pelanggan dan konsistensi pipeline CRM.
+Ticketing: Verdict: Tabel tiket dan SLA sudah lengkap; integrasi ke lead/customer tersedia. Best Approach: Hybrid (DB-first reads, API updates) – RLS untuk view tiket (user hanya lihat yang diizinkan), route handlers untuk create/update tiket/SLA. Teknis: Pastikan RLS menjaga dept_target (ops hanya lihat tiket dept mereka). Simpan SLA events via insert ke sla_events. Best Practices: Validasi data tiket di API (mandatory fields, skema). Acceptance Test: Buat tiket inquiry via lead, cek tickets dan sla_events terisi dengan tepat (masking aktif). Impact Metric: Kepatuhan SLA (persentase tiket ditutup on-time).
+AR/DSO: Verdict: Tabel invoices dan payments ada, tetapi tooling aging/DDS belum. Best Approach: DB-first dengan views – hitung aging/DSO via view atau materialized view. Teknis: Tambah view v_outstanding_aging yang menghitung umur piutang dari due_date. Best Practices: Kelompokan aging via CASE WHEN di view. Acceptance Test: Input beberapa invoice dan payment, periksa view aging memunculkan bucket yang benar. Impact Metric: Keteraturan koleksi (penurunan piutang overdue).
+Risiko dan Regresi
+RLS/Bug Akses: Implementasi RLS baru bisa memblok akses data jika aturan salah (user tidak melihat datanya sendiri). Uji ketat policy sebelum produksi.
+Deduplikasi Lead: Fungsi baru bisa menyebabkan penolakan insert jika tidak persis matching (hasil false positive atau false negative). Perlu test NPWP/email/phone kombinasi.
+Integrasi Tiket: Mengubah struktur tiket (mis. status/close_reason wajib) dapat mempengaruhi API eksisting; harus komunikasikan ke tim pengguna.
+View KPI/Aging: Pembuatan view dengan join/aggregate besar mungkin mempengaruhi performa database; pertimbangkan index atau materialized view.
+Checklist Kriteria Penerimaan Command Center
+ Roles & RBAC: Tabel roles berisi 15 role sesuai blueprint, dan profiles.role_name hanya mengacu ke role ini.
+ Menu Top-Level: Hanya top-level menu Dashboard, KPI, CRM, Ticketing, DSO tersedia. Sidebar menyesuaikan role (hidden, tidak disabled).
+ Module Functional: Setiap modul (KPI, CRM, Ticketing, DSO) dapat diakses oleh role yang berwenang dan datanya konsisten dengan spesifikasi blueprint.
+ Flow Otomatis: Alur Lead → Customer + Prospect berjalan otomatis sesuai desain. Lead → Ticket (RFQ) otomatis jika toggle diaktifkan.
+ Data Integrity: Semua tabel utama ada (leads, prospects, customers, tickets, invoices, payments, kpi_metrics, kpi_targets, audit_logs) dengan FK valid.
+ Audit Trail: Setiap operasi insert/update/import mencatat ke audit_logs.
+ SLA/Timestamps: Tabel sla_events tercatat per perubahan tiket; waktu dibuka dan ditutup tiket tercatat.
+ AR/DSO Computation: Dashboard DSO menghitung aging/DSO (lewat query/view); tidak ada faktur overdue tanpa indikasi.
+ Security: Service role key tidak terekspos (sesuai prinsip SSR Supabase); data baca melalui anon dengan RLS.
+ Performance: Query utama (KPI/CRM metrics) dioptimalkan dengan index (mis. tanggal, ID) sesuai best practice.
+Jika ada poin “tidak ditemukan” di atas, harap tambahkan implementasi atau jelaskan ekspektasi fitur tersebut.
+
+rekomendasi perbaikan:
+
+**Hybrid (DB-first untuk READ, BFF/API-first untuk WRITE).** Bukan debat akademik; ini yang paling minim friction dan paling gampang dijaga skalanya.
+
+Kenapa?
+
+* **READ = DB-first (views/reporting).** KPI, SLA/response time, AR aging, rolling DSO itu lebih efisien kalau jadi **view** yang dihitung dari tabel transaksi (leads, tickets, invoices, payments, activities). Tidak butuh user input tambahan, tidak ada “angka KPI disimpan manual” yang rawan salah. Blueprint memang menempatkan views sebagai sumber hitung KPI/DSO. 
+* **WRITE = BFF Route Handlers (server) + RLS (source of truth).** Semua mutasi sensitif (create/update, bulk import) lewat route handler supaya validasi, dedup, auto-link, audit log, dan atomic transaction bisa dipaksa konsisten. Service role key tidak pernah bocor ke client; tetap RLS yang menentukan lolos/tidak. 
+
+Kalau kamu “direct write dari client” untuk hal-hal inti (create lead, assign, import, invoice/payment), friction memang kelihatan rendah di awal. Tapi biaya operasionalnya meledak: data kotor, duplikasi, status nyangkut, retry import bikin double, audit trail bolong. Itu yang bikin command center kelihatan lengkap tapi tidak dipercaya.
+
+---
+
+## Apa yang bikin ini paling efisien di lapangan (bukan teori)
+
+### 1) **Auto-link lintas modul (no double entry) itu nomor satu**
+
+Blueprint sudah jelas: **Lead insert harus bisa sekaligus dedup customer (NPWP/email/phone/company), create customer kalau belum ada, create prospect kalau belum ada**, outputnya langsung lead_id, customer_id, prospect_id. Ini “sekali input, nyambung ke semua”. 
+
+Kalau ini kamu jalankan via BFF + transaction/RPC:
+
+* Marketing input lead cuma sekali.
+* Sales langsung punya prospect/pipeline tanpa bikin entitas ulang.
+* DSO scoping bisa diturunkan dari relasi lead→customer tanpa nambah kolom ownership baru (sesuai constraint kamu: jangan nambah beban user). 
+
+### 2) **KPI jangan disimpan sebagai angka; simpan “evidence + event + target”**
+
+Blueprint memposisikan KPI engine sebagai:
+
+* `kpi_metric_definitions` + `kpi_targets` (target)
+* realisasi dari data internal + views/agregasi
+* manual/import masuk sebagai event (bukan angka KPI final) lewat tools input/import center. 
+
+Ini efisien karena:
+
+* user tidak pernah “ngitung KPI”,
+* user cuma melakukan aktivitas normal (sales activities, ticket messages, invoice/payment) dan sistem yang hitung,
+* untuk metrik yang memang tidak ada sumber internal (spend, reach, dll), input/import tetap ringan dan bisa diulang tanpa chaos.
+
+### 3) **Import harus idempotent, atau kamu akan mati pelan-pelan**
+
+Blueprint sudah menetapkan “Import Center” flow: upload → parse server → validate → tulis `import_rows`, error rows disimpan dengan pesan validasi. Itu baru setengahnya. Bagian yang bikin operasional enak adalah **idempotency**: upload ulang file yang sama tidak bikin data dobel, cukup memperbaiki baris error. 
+
+Pola teknis paling efisien:
+
+* simpan `imports` sebagai “job”
+* setiap row punya `row_hash` (hash dari natural key + value penting)
+* upsert ke tabel target pakai natural key + `row_hash` untuk deteksi duplikat
+* error disimpan per row, bukan memaksa user upload ulang semuanya
+
+Hasilnya: retry itu murah. User tidak kerja ulang.
+
+### 4) **AR/DSO harus full auto dari invoice/payment, bukan spreadsheet-driven**
+
+Blueprint sudah mengunci bahwa views menghitung:
+
+* outstanding, overdue, aging buckets
+* rolling DSO
+  dan sales akses “My Customers AR” yang scope-nya diturunkan dari ownership via leads, bukan kolom ownership baru. 
+
+Itu efisien karena:
+
+* Finance cuma input invoice + payment (memang kerja mereka).
+* Semua dashboard AR/DSO keluar otomatis, tidak ada input tambahan dari sales.
+* Sales cukup lihat, follow-up, update aktivitas/ticket kalau perlu.
+
+### 5) **Ticketing SLA/response time jangan dihitung di app; hitung di DB**
+
+Blueprint sudah menetapkan `sla_events` dan view `v_ticket_first_response(_median)` sebagai sumber KPI, plus masking view untuk Ops RFQ. Itu tepat. Menghitung di DB bikin konsisten dan tidak tergantung “cara UI dipakai”. 
+
+---
+
+## Contoh “before/after” yang menunjukkan efisiensinya nyata
+
+### A. Create lead sampai siap dipakai Sales
+
+**Before (boros):**
+
+1. Marketing buat lead
+2. Sales bikin customer manual (atau import)
+3. Sales bikin prospect manual
+4. Data dobel/beda penulisan company name
+5. Reporting KPI kacau
+
+**After (efisien):**
+
+1. Marketing submit lead (1 form)
+2. BFF dedup customer (NPWP/email/phone/company) + auto-create customer bila perlu
+3. Auto-create prospect untuk owner yang relevan
+4. Lead langsung punya `customer_id` + `prospect_id`
+5. Semua modul baca relasi yang sama (CRM, KPI attribution, DSO scoping) 
+
+Efisiensi terbukti: step user turun, double entry hilang, trust data naik.
+
+### B. RFQ dari lead tanpa bikin Ops lihat PII
+
+**Before (rawan bocor):**
+
+1. Sales/marketing forward data customer ke Ops via chat
+2. Ops buat ticket manual
+3. PII kebawa kemana-mana
+
+**After (efisien + aman):**
+
+1. User toggle “Need rate quote” saat create lead
+2. BFF auto-create ticket `inquiry tariff` dan set masking flag
+3. Ops baca lewat masked view (PII tidak kelihatan)
+4. Response time & SLA otomatis kebaca untuk KPI 
+
+Efisiensi terbukti: handoff tidak pakai chat, audit trail ada, kebocoran PII ditekan.
+
+### C. DSO rolling tanpa kerja tambahan sales
+
+**Before (repot):**
+
+1. Finance upload aging spreadsheet
+2. Sales tanya-tanya siapa nunggak apa
+3. Data beda versi
+
+**After (efisien):**
+
+1. Finance create invoice + due date
+2. Finance record payment
+3. Views hitung outstanding/aging/dso rolling
+4. Sales lihat “My Customers AR” scoped dari ownership derived via leads 
+
+Efisiensi terbukti: tidak ada input baru, tidak ada rekonsiliasi manual berulang.
+

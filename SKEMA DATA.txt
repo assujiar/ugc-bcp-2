@@ -1,0 +1,323 @@
+
+CREATE TABLE public.audit_logs (
+  id bigint NOT NULL DEFAULT nextval('audit_logs_id_seq'::regclass),
+  table_name text NOT NULL,
+  record_id text,
+  action text NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  before_data jsonb,
+  after_data jsonb,
+  ip_address inet,
+  user_agent text,
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_logs_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.customers (
+  customer_id text NOT NULL,
+  company_name text NOT NULL,
+  npwp text,
+  pic_name text NOT NULL,
+  pic_phone text NOT NULL,
+  pic_email text NOT NULL,
+  address text,
+  city text,
+  country text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT customers_pkey PRIMARY KEY (customer_id)
+);
+CREATE TABLE public.departments (
+  dept_code USER-DEFINED NOT NULL,
+  dept_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT departments_pkey PRIMARY KEY (dept_code)
+);
+CREATE TABLE public.id_sequences (
+  prefix text NOT NULL,
+  date_part text NOT NULL,
+  last_seq integer NOT NULL DEFAULT 0,
+  CONSTRAINT id_sequences_pkey PRIMARY KEY (prefix, date_part)
+);
+CREATE TABLE public.import_rows (
+  id bigint NOT NULL DEFAULT nextval('import_rows_id_seq'::regclass),
+  import_id bigint NOT NULL,
+  row_number integer NOT NULL,
+  row_data jsonb,
+  error_message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT import_rows_pkey PRIMARY KEY (id),
+  CONSTRAINT import_rows_import_id_fkey FOREIGN KEY (import_id) REFERENCES public.imports(import_id)
+);
+CREATE TABLE public.imports (
+  import_id bigint NOT NULL DEFAULT nextval('imports_import_id_seq'::regclass),
+  module text NOT NULL,
+  file_name text NOT NULL,
+  file_url text,
+  total_rows integer,
+  success_rows integer DEFAULT 0,
+  error_rows integer DEFAULT 0,
+  status USER-DEFINED NOT NULL DEFAULT 'UPLOADED'::import_status,
+  uploaded_by uuid NOT NULL,
+  uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
+  processed_at timestamp with time zone,
+  CONSTRAINT imports_pkey PRIMARY KEY (import_id),
+  CONSTRAINT imports_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.invoices (
+  invoice_id text NOT NULL,
+  customer_id text NOT NULL,
+  invoice_date date NOT NULL,
+  due_date date NOT NULL,
+  invoice_amount numeric NOT NULL,
+  currency text NOT NULL DEFAULT 'IDR'::text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT invoices_pkey PRIMARY KEY (invoice_id),
+  CONSTRAINT invoices_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id),
+  CONSTRAINT invoices_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.kpi_metric_definitions (
+  metric_key text NOT NULL,
+  owner_role text NOT NULL,
+  unit text,
+  calc_method USER-DEFINED NOT NULL,
+  direction USER-DEFINED NOT NULL,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kpi_metric_definitions_pkey PRIMARY KEY (metric_key),
+  CONSTRAINT kpi_metric_definitions_owner_role_fkey FOREIGN KEY (owner_role) REFERENCES public.roles(role_name)
+);
+CREATE TABLE public.kpi_targets (
+  id bigint NOT NULL DEFAULT nextval('kpi_targets_id_seq'::regclass),
+  metric_key text NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  assignee_user_id uuid,
+  target_value numeric NOT NULL,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT kpi_targets_pkey PRIMARY KEY (id),
+  CONSTRAINT kpi_targets_metric_key_fkey FOREIGN KEY (metric_key) REFERENCES public.kpi_metric_definitions(metric_key),
+  CONSTRAINT kpi_targets_assignee_user_id_fkey FOREIGN KEY (assignee_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT kpi_targets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.leads (
+  lead_id text NOT NULL,
+  lead_date date NOT NULL DEFAULT CURRENT_DATE,
+  company_name text NOT NULL,
+  pic_name text NOT NULL,
+  contact_phone text NOT NULL,
+  email text NOT NULL,
+  city_area text NOT NULL,
+  service_code text NOT NULL,
+  route text,
+  est_volume_value numeric,
+  est_volume_unit text,
+  timeline text,
+  sourced_by USER-DEFINED NOT NULL,
+  primary_channel USER-DEFINED NOT NULL,
+  campaign_name text,
+  notes text,
+  sales_owner_user_id uuid,
+  customer_id text,
+  prospect_id text,
+  status USER-DEFINED NOT NULL DEFAULT 'New'::lead_status,
+  next_step USER-DEFINED NOT NULL,
+  due_date date NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT leads_pkey PRIMARY KEY (lead_id),
+  CONSTRAINT leads_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT leads_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public.prospects(prospect_id),
+  CONSTRAINT leads_service_code_fkey FOREIGN KEY (service_code) REFERENCES public.service_catalog(service_code),
+  CONSTRAINT leads_sales_owner_user_id_fkey FOREIGN KEY (sales_owner_user_id) REFERENCES public.profiles(user_id),
+  CONSTRAINT leads_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id)
+);
+CREATE TABLE public.marketing_activity_events (
+  id bigint NOT NULL DEFAULT nextval('marketing_activity_events_id_seq'::regclass),
+  activity_name text NOT NULL,
+  channel USER-DEFINED,
+  activity_date date NOT NULL,
+  quantity numeric NOT NULL,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketing_activity_events_pkey PRIMARY KEY (id),
+  CONSTRAINT marketing_activity_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.marketing_spend (
+  id bigint NOT NULL DEFAULT nextval('marketing_spend_id_seq'::regclass),
+  channel USER-DEFINED NOT NULL,
+  spend_date date NOT NULL,
+  amount numeric NOT NULL,
+  campaign_name text,
+  notes text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketing_spend_pkey PRIMARY KEY (id),
+  CONSTRAINT marketing_spend_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.payments (
+  payment_id bigint NOT NULL DEFAULT nextval('payments_payment_id_seq'::regclass),
+  invoice_id text NOT NULL,
+  payment_date date NOT NULL,
+  amount numeric NOT NULL,
+  payment_method text,
+  reference_no text,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (payment_id),
+  CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(invoice_id),
+  CONSTRAINT payments_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.profiles (
+  user_id uuid NOT NULL,
+  user_code text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  role_name text NOT NULL,
+  dept_code USER-DEFINED NOT NULL,
+  manager_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_role_name_fkey FOREIGN KEY (role_name) REFERENCES public.roles(role_name),
+  CONSTRAINT profiles_dept_code_fkey FOREIGN KEY (dept_code) REFERENCES public.departments(dept_code),
+  CONSTRAINT profiles_manager_user_id_fkey FOREIGN KEY (manager_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.prospect_stage_history (
+  id bigint NOT NULL DEFAULT nextval('prospect_stage_history_id_seq'::regclass),
+  prospect_id text NOT NULL,
+  from_stage USER-DEFINED,
+  to_stage USER-DEFINED NOT NULL,
+  changed_by uuid NOT NULL,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT prospect_stage_history_pkey PRIMARY KEY (id),
+  CONSTRAINT prospect_stage_history_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public.prospects(prospect_id),
+  CONSTRAINT prospect_stage_history_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.prospects (
+  prospect_id text NOT NULL,
+  customer_id text NOT NULL,
+  owner_user_id uuid NOT NULL,
+  current_stage USER-DEFINED NOT NULL DEFAULT 'Prospect Created'::prospect_stage,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT prospects_pkey PRIMARY KEY (prospect_id),
+  CONSTRAINT prospects_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id),
+  CONSTRAINT prospects_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.roles (
+  role_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT roles_pkey PRIMARY KEY (role_name)
+);
+CREATE TABLE public.sales_activities (
+  activity_id bigint NOT NULL DEFAULT nextval('sales_activities_activity_id_seq'::regclass),
+  prospect_id text NOT NULL,
+  activity_type USER-DEFINED NOT NULL,
+  notes text NOT NULL,
+  evidence_photo_url text,
+  gps_lat numeric,
+  gps_lng numeric,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sales_activities_pkey PRIMARY KEY (activity_id),
+  CONSTRAINT sales_activities_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public.prospects(prospect_id),
+  CONSTRAINT sales_activities_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.saved_views (
+  view_id bigint NOT NULL DEFAULT nextval('saved_views_view_id_seq'::regclass),
+  module text NOT NULL,
+  view_name text NOT NULL,
+  filter_json jsonb NOT NULL,
+  is_default boolean NOT NULL DEFAULT false,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT saved_views_pkey PRIMARY KEY (view_id),
+  CONSTRAINT saved_views_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.service_catalog (
+  service_code text NOT NULL,
+  service_name text NOT NULL,
+  owner_dept USER-DEFINED NOT NULL,
+  scope_group text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT service_catalog_pkey PRIMARY KEY (service_code),
+  CONSTRAINT service_catalog_owner_dept_fkey FOREIGN KEY (owner_dept) REFERENCES public.departments(dept_code)
+);
+CREATE TABLE public.sla_events (
+  id bigint NOT NULL DEFAULT nextval('sla_events_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  event_type text NOT NULL,
+  event_at timestamp with time zone NOT NULL DEFAULT now(),
+  metadata jsonb,
+  CONSTRAINT sla_events_pkey PRIMARY KEY (id),
+  CONSTRAINT sla_events_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id)
+);
+CREATE TABLE public.ticket_attachments (
+  attachment_id bigint NOT NULL DEFAULT nextval('ticket_attachments_attachment_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  file_url text NOT NULL,
+  file_name text,
+  file_size bigint,
+  uploaded_by uuid NOT NULL,
+  uploaded_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_attachments_pkey PRIMARY KEY (attachment_id),
+  CONSTRAINT ticket_attachments_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id),
+  CONSTRAINT ticket_attachments_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.ticket_messages (
+  message_id bigint NOT NULL DEFAULT nextval('ticket_messages_message_id_seq'::regclass),
+  ticket_id text NOT NULL,
+  message text NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ticket_messages_pkey PRIMARY KEY (message_id),
+  CONSTRAINT ticket_messages_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(ticket_id),
+  CONSTRAINT ticket_messages_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.tickets (
+  ticket_id text NOT NULL,
+  ticket_type USER-DEFINED NOT NULL,
+  inquiry_status USER-DEFINED,
+  ticket_status USER-DEFINED,
+  dept_target USER-DEFINED NOT NULL,
+  service_code text,
+  created_by uuid NOT NULL,
+  assigned_to uuid,
+  related_lead_id text,
+  related_customer_id text,
+  subject text NOT NULL,
+  description text,
+  origin_address text,
+  origin_city text,
+  origin_country text,
+  destination_address text,
+  destination_city text,
+  destination_country text,
+  cargo_category text,
+  cargo_qty numeric,
+  cargo_dimensions text,
+  cargo_weight numeric,
+  scope_of_work text,
+  need_customer_masking boolean NOT NULL DEFAULT false,
+  close_reason text,
+  competitor_rate numeric,
+  customer_budget numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  closed_at timestamp with time zone,
+  CONSTRAINT tickets_pkey PRIMARY KEY (ticket_id),
+  CONSTRAINT tickets_service_code_fkey FOREIGN KEY (service_code) REFERENCES public.service_catalog(service_code),
+  CONSTRAINT tickets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(user_id),
+  CONSTRAINT tickets_related_lead_id_fkey FOREIGN KEY (related_lead_id) REFERENCES public.leads(lead_id),
+  CONSTRAINT tickets_related_customer_id_fkey FOREIGN KEY (related_customer_id) REFERENCES public.customers(customer_id)
+);

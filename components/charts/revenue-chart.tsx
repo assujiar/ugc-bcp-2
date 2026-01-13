@@ -148,8 +148,8 @@ export function RevenueChart({ className }: RevenueChartProps) {
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
             }}
             labelStyle={{ color: "hsl(var(--foreground))" }}
-            formatter={(value: number, name: string) => [
-              `Rp ${value.toLocaleString("id-ID")}`,
+            formatter={(value, name) => [
+              typeof value === "number" ? `Rp ${value.toLocaleString("id-ID")}` : "Rp 0",
               name === "revenue" ? "Revenue" : "Target",
             ]}
           />
