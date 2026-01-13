@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
-import { apiSuccess, apiErrors } from "@/lib/api/error";
+import { apiSuccess, apiErrors, apiError } from "@/lib/api/error";
 
 const OPPORTUNITY_STAGES = [
   "Prospecting", "Discovery", "Proposal Sent", "Quote Sent",
@@ -15,8 +15,19 @@ const stageChangeSchema = z.object({
   next_step: z.string().min(1),
   next_step_due_date: z.string(),
   lost_reason: z.string().optional(),
+  outcome: z.string().optional(),
   notes: z.string().optional(),
 });
+
+// Human-readable field labels for error messages
+const FIELD_LABELS: Record<string, string> = {
+  owner_user_id: "Sales Owner",
+  next_step: "Next Step",
+  next_step_due_date: "Due Date",
+  quote_record: "Quote Record",
+  outcome: "Win Reason",
+  lost_reason: "Lost Reason",
+};
 
 // POST /api/crm/opportunities/[id]/stage - Change opportunity stage (atomic)
 export async function POST(
@@ -39,7 +50,7 @@ export async function POST(
       return apiErrors.validation("Validation error", validation.error.issues);
     }
 
-    const { new_stage, next_step, next_step_due_date, lost_reason, notes } = validation.data;
+    const { new_stage, next_step, next_step_due_date, lost_reason, outcome, notes } = validation.data;
 
     // Generate idempotency key
     const idempotencyKey = `stage-change-${id}-${new_stage}-${uuidv4()}`;
@@ -52,6 +63,7 @@ export async function POST(
       p_next_step: next_step,
       p_next_step_due_date: next_step_due_date,
       p_lost_reason: lost_reason,
+      p_outcome: outcome,
       p_notes: notes,
     });
 
@@ -60,9 +72,41 @@ export async function POST(
       return apiErrors.internal(error.message);
     }
 
-    const result = data as { success: boolean; error?: string; opportunity_id?: string; new_stage?: string };
+    interface StageChangeResult {
+      success: boolean;
+      error?: string;
+      error_code?: string;
+      missing_fields?: string[];
+      target_stage?: string;
+      opportunity_id?: string;
+      new_stage?: string;
+      old_stage?: string;
+    }
+
+    const result = data as StageChangeResult;
 
     if (!result.success) {
+      // Handle exit criteria violations with 409 Conflict
+      if (result.error_code === "EXIT_CRITERIA_NOT_MET" && result.missing_fields) {
+        const missingFieldLabels = result.missing_fields
+          .map((f) => FIELD_LABELS[f] || f)
+          .join(", ");
+
+        return apiError("CONFLICT", `Cannot move to ${result.target_stage}: missing ${missingFieldLabels}`, {
+          missing_fields: result.missing_fields,
+          target_stage: result.target_stage,
+          field_labels: result.missing_fields.map((f) => ({
+            field: f,
+            label: FIELD_LABELS[f] || f,
+          })),
+        });
+      }
+
+      // Handle not found
+      if (result.error_code === "NOT_FOUND") {
+        return apiErrors.notFound("Opportunity");
+      }
+
       return apiErrors.badRequest(result.error || "Failed to change stage");
     }
 

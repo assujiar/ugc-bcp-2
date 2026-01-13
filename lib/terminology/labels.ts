@@ -33,6 +33,7 @@ export const navLabels = {
   accounts: "Accounts",
   prospectingTargets: "Prospecting Targets",  // formerly "Targets"
   activities: "Activities",
+  actionableItems: "Actionable Items",  // "No Record Left Behind" debug view
 
   // Ticketing submenu
   allTickets: "All Tickets",
@@ -89,6 +90,11 @@ export const pageLabels = {
     title: "Activity Planner",
     subtitle: "Plan and schedule upcoming activities.",
     breadcrumb: "Activity Planner",
+  },
+  actionable: {
+    title: "Actionable Items",
+    subtitle: "No record left behind - all items requiring attention.",
+    breadcrumb: "Actionable Items",
   },
 
   // Performance (KPI) Pages
@@ -314,6 +320,10 @@ export const emptyStateMessages = {
   activities: {
     title: "No activities",
     description: "Schedule activities to track your customer interactions.",
+  },
+  actionable: {
+    title: "All clear!",
+    description: "No urgent items require attention. Great job keeping everything on track!",
   },
   noResults: {
     title: "No results found",

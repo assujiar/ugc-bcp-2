@@ -18,6 +18,7 @@ import {
   Users,
   Briefcase,
   UserCheck,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,7 +26,11 @@ import {
   actionLabels,
   fieldLabels,
   emptyStateMessages,
+  toastMessages,
 } from "@/lib/terminology/labels";
+import { fetchJson, isSuccess } from "@/lib/api/fetchJson";
+import { toastSuccess, toastError, toast } from "@/lib/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 interface Activity {
   activity_id: string;
@@ -58,6 +63,7 @@ interface MyLead {
   next_step?: string;
   due_date?: string;
   status: string;
+  opportunity_id?: string;
 }
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
@@ -115,60 +121,109 @@ export default function SalesInboxPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleClaimLead = async (leadId: string) => {
+  const handleClaimLead = async (leadId: string, companyName: string) => {
     setClaiming(leadId);
     try {
-      const res = await fetch(`/api/crm/leads/${leadId}/claim`, {
+      const result = await fetchJson<{
+        success: boolean;
+        lead_id: string;
+        account_id: string;
+        opportunity_id: string;
+        activity_id: string;
+      }>(`/api/crm/leads/${leadId}/claim`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        showErrorToast: true,
+        showSuccessToast: false,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        // Navigate to the created opportunity for immediate follow-up
-        if (data.opportunity_id) {
-          router.push(`/crm/pipeline?highlight=${data.opportunity_id}`);
-        } else {
-          fetchData();
-          setActiveTab("my_leads");
-        }
+      if (isSuccess(result) && result.data.success) {
+        const { opportunity_id } = result.data;
+
+        // Show success toast with action to view opportunity
+        toast({
+          variant: "success",
+          title: "Lead Claimed Successfully",
+          description: `${companyName} is now assigned to you. Opportunity created.`,
+          action: (
+            <ToastAction
+              altText="View Opportunity"
+              onClick={() => router.push(`/crm/opportunities/${opportunity_id}`)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View
+            </ToastAction>
+          ),
+        });
+
+        // Navigate to opportunity detail page
+        router.push(`/crm/opportunities/${opportunity_id}`);
+      } else if (!isSuccess(result)) {
+        // Error already shown via toast
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to claim lead");
+        fetchData();
+        setActiveTab("my_leads");
       }
     } catch (err) {
       console.error("Error claiming lead:", err);
+      toastError("Error", "Failed to claim lead");
     } finally {
       setClaiming(null);
     }
   };
 
-  // Convert a claimed lead to opportunity (for leads that weren't auto-converted)
-  const handleConvertLead = async (leadId: string) => {
+  // Convert a claimed lead to opportunity with cadence activities
+  const handleConvertLead = async (leadId: string, companyName: string) => {
     setConverting(leadId);
     try {
-      const res = await fetch(`/api/crm/leads/${leadId}/convert`, {
+      const result = await fetchJson<{
+        success: boolean;
+        lead_id: string;
+        opportunity_id: string;
+        account_id: string;
+        activities_created: number;
+        already_converted?: boolean;
+        message: string;
+      }>(`/api/crm/leads/${leadId}/convert`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           next_step: "Initial contact call",
           next_step_due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        }),
+        },
+        showErrorToast: true,
+        showSuccessToast: false,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.opportunity_id) {
-          router.push(`/crm/pipeline?highlight=${data.opportunity_id}`);
-        } else {
-          fetchData();
-        }
+      if (isSuccess(result) && result.data.success) {
+        const { opportunity_id, activities_created, already_converted } = result.data;
+
+        // Show success toast with action to view opportunity
+        toast({
+          variant: "success",
+          title: already_converted ? "Already Converted" : "Lead Converted Successfully",
+          description: already_converted
+            ? `${companyName} was already converted. Redirecting to opportunity.`
+            : `${companyName} converted with ${activities_created} cadence activities.`,
+          action: (
+            <ToastAction
+              altText="View Opportunity"
+              onClick={() => router.push(`/crm/opportunities/${opportunity_id}`)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View
+            </ToastAction>
+          ),
+        });
+
+        // Navigate to opportunity detail page
+        router.push(`/crm/opportunities/${opportunity_id}`);
+      } else if (!isSuccess(result)) {
+        // Error already shown via toast
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to convert lead");
+        fetchData();
       }
     } catch (err) {
       console.error("Error converting lead:", err);
+      toastError("Error", "Failed to convert lead");
     } finally {
       setConverting(null);
     }
@@ -397,7 +452,7 @@ export default function SalesInboxPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleClaimLead(lead.lead_id)}
+                        onClick={() => handleClaimLead(lead.lead_id, lead.company_name)}
                         disabled={claiming === lead.lead_id}
                         className="btn-primary h-8 px-3 text-sm"
                       >
@@ -465,14 +520,24 @@ export default function SalesInboxPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Link
-                          href={`/crm/pipeline?account=${lead.company_name}`}
-                          className="btn-outline h-8 px-3 text-sm"
-                        >
-                          View
-                        </Link>
+                        {lead.opportunity_id ? (
+                          <Link
+                            href={`/crm/opportunities/${lead.opportunity_id}`}
+                            className="btn-outline h-8 px-3 text-sm"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            View Opp
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/crm/pipeline?account=${lead.company_name}`}
+                            className="btn-outline h-8 px-3 text-sm"
+                          >
+                            View
+                          </Link>
+                        )}
                         <button
-                          onClick={() => handleConvertLead(lead.lead_id)}
+                          onClick={() => handleConvertLead(lead.lead_id, lead.company_name)}
                           disabled={converting === lead.lead_id}
                           className="btn-primary h-8 px-3 text-sm"
                         >
