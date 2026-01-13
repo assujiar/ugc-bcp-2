@@ -199,9 +199,30 @@ export interface ProspectingTarget {
   drop_reason: string | null;
   dropped_at: string | null;
   converted_at: string | null;
+  import_batch_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ImportBatch {
+  batch_id: string;
+  source_name: string;
+  file_hash: string;
+  row_count: number;
+  inserted: number;
+  updated: number;
+  failed: number;
+  failed_rows: ImportFailedRow[];
+  entity_type: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ImportFailedRow {
+  row_number: number;
+  reason: string;
+  data: Record<string, string>;
 }
 
 export interface Opportunity {

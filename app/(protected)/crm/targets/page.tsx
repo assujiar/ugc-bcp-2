@@ -16,6 +16,9 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
+  FileText,
+  AlertCircle,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -49,6 +52,25 @@ interface ProspectingTarget {
   owner?: { user_id: string; full_name: string } | null;
 }
 
+interface ImportFailedRow {
+  row_number: number;
+  reason: string;
+  data: Record<string, string>;
+}
+
+interface ImportResult {
+  batch_id: string;
+  source_name: string;
+  row_count: number;
+  inserted: number;
+  updated: number;
+  failed: number;
+  failed_rows: ImportFailedRow[];
+  is_duplicate_file: boolean;
+  previous_batch_id?: string;
+  message?: string;
+}
+
 // SSOT-aligned status colors
 const STATUS_COLORS: Record<TargetStatus, string> = {
   new_target: "bg-primary/10 text-primary",
@@ -78,8 +100,12 @@ export default function TargetsPage() {
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showStatusModal, setShowStatusModal] = React.useState(false);
   const [showDropModal, setShowDropModal] = React.useState(false);
+  const [showImportModal, setShowImportModal] = React.useState(false);
   const [selectedTarget, setSelectedTarget] = React.useState<ProspectingTarget | null>(null);
   const [dropReason, setDropReason] = React.useState("");
+  const [importFile, setImportFile] = React.useState<File | null>(null);
+  const [importing, setImporting] = React.useState(false);
+  const [importResult, setImportResult] = React.useState<ImportResult | null>(null);
   const [addData, setAddData] = React.useState({
     company_name: "",
     domain: "",
@@ -155,6 +181,48 @@ export default function TargetsPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) {
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+
+      const res = await fetch("/api/crm/targets/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.data) {
+        setImportResult(data.data);
+        // Refresh targets list if any were imported
+        if (data.data.inserted > 0 || data.data.updated > 0) {
+          fetchTargets();
+        }
+      } else {
+        alert(data.error?.message || "Failed to import file");
+      }
+    } catch (err) {
+      console.error("Error importing file:", err);
+      alert("Network error. Please try again.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const resetImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportResult(null);
   };
 
   const handleConvert = async (targetId: string) => {
@@ -282,7 +350,7 @@ export default function TargetsPage() {
           <p className="text-muted-foreground">{pageLabels.prospectingTargets.subtitle}</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-outline h-10">
+          <button onClick={() => setShowImportModal(true)} className="btn-outline h-10">
             <Upload className="h-4 w-4 mr-2" />
             {actionLabels.import}
           </button>
@@ -626,6 +694,206 @@ export default function TargetsPage() {
             >
               {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : "Drop Target"}
             </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={(open) => {
+        if (!open) resetImportModal();
+        else setShowImportModal(open);
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Targets from CSV</DialogTitle>
+          </DialogHeader>
+
+          {!importResult ? (
+            // File upload form
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Upload a CSV file to import prospecting targets. The file should have a header row with column names.
+              </p>
+
+              {/* Expected columns info */}
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Expected columns:</p>
+                <p className="text-xs text-muted-foreground">
+                  Company Name (required), Domain, Industry, Contact Name, Contact Email, Contact Phone, LinkedIn URL, City, Notes, Source
+                </p>
+              </div>
+
+              {/* File input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">CSV File *</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 cursor-pointer">
+                    <div className={cn(
+                      "flex items-center justify-center gap-2 h-20 px-4 rounded-lg border-2 border-dashed transition-colors",
+                      importFile
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:border-primary/30 hover:bg-muted/30"
+                    )}>
+                      {importFile ? (
+                        <>
+                          <FileText className="h-6 w-6 text-primary" />
+                          <div className="text-sm">
+                            <p className="font-medium text-foreground">{importFile.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(importFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            Click to select CSV file
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                  </label>
+                  {importFile && (
+                    <button
+                      onClick={() => setImportFile(null)}
+                      className="p-2 text-muted-foreground hover:text-destructive"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Sample CSV download */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Download className="h-3 w-3" />
+                <a
+                  href="/sample-targets-import.csv"
+                  download
+                  className="hover:text-primary hover:underline"
+                >
+                  Download sample CSV template
+                </a>
+              </div>
+            </div>
+          ) : (
+            // Import results
+            <div className="space-y-4 py-4">
+              {/* Duplicate file warning */}
+              {importResult.is_duplicate_file && (
+                <div className="flex items-start gap-3 p-3 bg-warning/10 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-warning">Duplicate File Detected</p>
+                    <p className="text-muted-foreground mt-1">
+                      {importResult.message}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Success summary */}
+              {!importResult.is_duplicate_file && (
+                <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-success">Import Completed</p>
+                    <p className="text-muted-foreground mt-1">
+                      Batch ID: {importResult.batch_id}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <p className="text-2xl font-bold text-foreground">{importResult.row_count}</p>
+                  <p className="text-xs text-muted-foreground">Total Rows</p>
+                </div>
+                <div className="text-center p-3 bg-success/10 rounded-lg">
+                  <p className="text-2xl font-bold text-success">{importResult.inserted}</p>
+                  <p className="text-xs text-muted-foreground">Inserted</p>
+                </div>
+                <div className="text-center p-3 bg-info/10 rounded-lg">
+                  <p className="text-2xl font-bold text-info">{importResult.updated}</p>
+                  <p className="text-xs text-muted-foreground">Updated</p>
+                </div>
+                <div className="text-center p-3 bg-destructive/10 rounded-lg">
+                  <p className="text-2xl font-bold text-destructive">{importResult.failed}</p>
+                  <p className="text-xs text-muted-foreground">Failed</p>
+                </div>
+              </div>
+
+              {/* Failed rows details */}
+              {importResult.failed_rows && importResult.failed_rows.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-destructive">
+                    Failed Rows ({importResult.failed_rows.length})
+                  </p>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Row</th>
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Company</th>
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {importResult.failed_rows.map((row) => (
+                          <tr key={row.row_number} className="hover:bg-muted/20">
+                            <td className="px-3 py-2 text-foreground">{row.row_number}</td>
+                            <td className="px-3 py-2 text-foreground truncate max-w-[120px]">
+                              {row.data.company_name || row.data.company || row.data["company name"] || "-"}
+                            </td>
+                            <td className="px-3 py-2 text-destructive">{row.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            {!importResult ? (
+              <>
+                <button onClick={resetImportModal} className="btn-outline" disabled={importing}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImport}
+                  className="btn-primary"
+                  disabled={!importFile || importing}
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <button onClick={resetImportModal} className="btn-primary">
+                Done
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
