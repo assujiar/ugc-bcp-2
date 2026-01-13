@@ -2,7 +2,9 @@
 
 import { useUser } from "@/lib/contexts/user-context";
 import { AppShell } from "@/components/layout/app-shell";
-import { getAllowedMenus } from "@/lib/rbac";
+
+// All available menu IDs - display all menus and submenus for all users
+const ALL_MENUS = ["Dashboard", "KPI", "CRM", "Ticketing", "DSO"];
 
 interface ProtectedShellProps {
   children: React.ReactNode;
@@ -22,9 +24,6 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
     );
   }
 
-  // Cast role_name to the expected type
-  const allowedMenus = getAllowedMenus(user.role_name as Parameters<typeof getAllowedMenus>[0]);
-
   return (
     <AppShell
       user={{
@@ -32,7 +31,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
         role_name: user.role_name,
         user_code: user.user_code,
       }}
-      allowedMenus={allowedMenus}
+      allowedMenus={ALL_MENUS}
     >
       {children}
     </AppShell>
