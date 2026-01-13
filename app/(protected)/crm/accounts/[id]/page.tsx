@@ -18,6 +18,7 @@ import {
   Plus,
   Clock,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -108,6 +109,7 @@ export default function AccountDetailPage() {
   });
   const [loading, setLoading] = React.useState(true);
   const [showAddContactModal, setShowAddContactModal] = React.useState(false);
+  const [showEditAccountModal, setShowEditAccountModal] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [addContactData, setAddContactData] = React.useState({
     first_name: "",
@@ -117,6 +119,18 @@ export default function AccountDetailPage() {
     phone: "",
     is_primary: false,
     is_decision_maker: false,
+  });
+  const [editAccountData, setEditAccountData] = React.useState({
+    company_name: "",
+    domain: "",
+    industry: "",
+    pic_name: "",
+    pic_phone: "",
+    pic_email: "",
+    address: "",
+    city: "",
+    country: "",
+    npwp: "",
   });
 
   React.useEffect(() => {
@@ -180,6 +194,57 @@ export default function AccountDetailPage() {
     } catch (err) {
       console.error("Error creating contact:", err);
       alert("An error occurred while creating the contact");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = () => {
+    if (data.account) {
+      setEditAccountData({
+        company_name: data.account.company_name || "",
+        domain: data.account.domain || "",
+        industry: data.account.industry || "",
+        pic_name: data.account.pic_name || "",
+        pic_phone: data.account.pic_phone || "",
+        pic_email: data.account.pic_email || "",
+        address: data.account.address || "",
+        city: data.account.city || "",
+        country: data.account.country || "",
+        npwp: data.account.npwp || "",
+      });
+      setShowEditAccountModal(true);
+    }
+  };
+
+  const handleEditAccount = async () => {
+    if (!editAccountData.company_name) {
+      alert("Company name is required");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/crm/accounts/${accountId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editAccountData),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setData((prev) => ({
+          ...prev,
+          account: { ...prev.account!, ...result.account },
+        }));
+        setShowEditAccountModal(false);
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error?.message || errorData.error || "Failed to update account");
+      }
+    } catch (err) {
+      console.error("Error updating account:", err);
+      alert("An error occurred while updating the account");
     } finally {
       setSubmitting(false);
     }
@@ -274,6 +339,10 @@ export default function AccountDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <button onClick={openEditModal} className="btn-ghost h-9">
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit
+          </button>
           <Link href={`/crm/pipeline?account_id=${accountId}`} className="btn-outline h-9">
             <Plus className="h-4 w-4 mr-2" />
             Add Opportunity
@@ -581,6 +650,122 @@ export default function AccountDetailPage() {
             </button>
             <button onClick={handleAddContact} className="btn-primary" disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Contact"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Account Modal */}
+      <Dialog open={showEditAccountModal} onOpenChange={setShowEditAccountModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Company Name *</label>
+              <input
+                type="text"
+                value={editAccountData.company_name}
+                onChange={(e) => setEditAccountData({ ...editAccountData, company_name: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Domain</label>
+                <input
+                  type="text"
+                  value={editAccountData.domain}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, domain: e.target.value })}
+                  placeholder="company.com"
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Industry</label>
+                <input
+                  type="text"
+                  value={editAccountData.industry}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, industry: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Primary Contact Name</label>
+              <input
+                type="text"
+                value={editAccountData.pic_name}
+                onChange={(e) => setEditAccountData({ ...editAccountData, pic_name: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Phone</label>
+                <input
+                  type="tel"
+                  value={editAccountData.pic_phone}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, pic_phone: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <input
+                  type="email"
+                  value={editAccountData.pic_email}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, pic_email: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Address</label>
+              <input
+                type="text"
+                value={editAccountData.address}
+                onChange={(e) => setEditAccountData({ ...editAccountData, address: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">City</label>
+                <input
+                  type="text"
+                  value={editAccountData.city}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, city: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Country</label>
+                <input
+                  type="text"
+                  value={editAccountData.country}
+                  onChange={(e) => setEditAccountData({ ...editAccountData, country: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">NPWP (Tax ID)</label>
+              <input
+                type="text"
+                value={editAccountData.npwp}
+                onChange={(e) => setEditAccountData({ ...editAccountData, npwp: e.target.value })}
+                className="w-full h-10 px-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setShowEditAccountModal(false)} className="btn-outline" disabled={submitting}>
+              Cancel
+            </button>
+            <button onClick={handleEditAccount} className="btn-primary" disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
             </button>
           </DialogFooter>
         </DialogContent>
