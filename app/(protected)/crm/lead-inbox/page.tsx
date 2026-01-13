@@ -29,7 +29,10 @@ import {
   emptyStateMessages,
   modalTitles,
   getLeadStatusLabel,
+  toastMessages,
 } from "@/lib/terminology/labels";
+import { fetchJson, isSuccess } from "@/lib/api/fetchJson";
+import { toastError } from "@/lib/hooks/use-toast";
 
 interface Lead {
   lead_id: string;
@@ -66,17 +69,15 @@ export default function LeadInboxPage() {
 
   const fetchLeads = React.useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/crm/leads?view=inbox&pageSize=100");
-      if (res.ok) {
-        const data = await res.json();
-        setLeads(data.data || []);
-      }
-    } catch (err) {
-      console.error("Error fetching leads:", err);
-    } finally {
-      setLoading(false);
+    const result = await fetchJson<Lead[]>("/api/crm/leads", {
+      params: { view: "inbox", pageSize: 100 },
+      showErrorToast: true,
+      errorMessage: toastMessages.errorLoading,
+    });
+    if (isSuccess(result)) {
+      setLeads(result.data || []);
     }
+    setLoading(false);
   }, []);
 
   React.useEffect(() => {
@@ -86,66 +87,56 @@ export default function LeadInboxPage() {
   const handleTriage = async () => {
     if (!selectedLead || !triageAction) return;
 
-    setSubmitting(true);
-    try {
-      const body: Record<string, unknown> = {
-        triage_status: triageAction,
-        notes: triageNotes,
-      };
-
-      if (triageAction === "Disqualified") {
-        if (!disqualifyReason) {
-          alert("Please provide a reason for disqualification");
-          setSubmitting(false);
-          return;
-        }
-        body.disqualified_reason = disqualifyReason;
-      }
-
-      const res = await fetch(`/api/crm/leads/${selectedLead.lead_id}/triage`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        setShowTriageModal(false);
-        setSelectedLead(null);
-        setTriageAction("");
-        setTriageNotes("");
-        setDisqualifyReason("");
-        fetchLeads();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Failed to triage lead");
-      }
-    } catch (err) {
-      console.error("Error triaging lead:", err);
-    } finally {
-      setSubmitting(false);
+    if (triageAction === "Disqualified" && !disqualifyReason) {
+      toastError("Validation Error", "Please provide a reason for disqualification");
+      return;
     }
+
+    setSubmitting(true);
+    const body: Record<string, unknown> = {
+      triage_status: triageAction,
+      notes: triageNotes,
+    };
+
+    if (triageAction === "Disqualified") {
+      body.disqualified_reason = disqualifyReason;
+    }
+
+    const result = await fetchJson(`/api/crm/leads/${selectedLead.lead_id}/triage`, {
+      method: "PATCH",
+      body,
+      successMessage: triageAction === "Qualified"
+        ? toastMessages.leadQualified
+        : triageAction === "Disqualified"
+        ? toastMessages.leadDisqualified
+        : "Lead triaged successfully",
+      showSuccessToast: true,
+    });
+
+    if (isSuccess(result)) {
+      setShowTriageModal(false);
+      setSelectedLead(null);
+      setTriageAction("");
+      setTriageNotes("");
+      setDisqualifyReason("");
+      fetchLeads();
+    }
+    setSubmitting(false);
   };
 
   const handleHandover = async (lead: Lead) => {
     setHandingOver(true);
-    try {
-      const res = await fetch(`/api/crm/leads/${lead.lead_id}/handover`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: "Qualified and ready for sales" }),
-      });
+    const result = await fetchJson(`/api/crm/leads/${lead.lead_id}/handover`, {
+      method: "POST",
+      body: { notes: "Qualified and ready for sales" },
+      successMessage: toastMessages.leadSentToSalesPool,
+      showSuccessToast: true,
+    });
 
-      if (res.ok) {
-        fetchLeads();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Failed to handover lead");
-      }
-    } catch (err) {
-      console.error("Error handing over lead:", err);
-    } finally {
-      setHandingOver(false);
+    if (isSuccess(result)) {
+      fetchLeads();
     }
+    setHandingOver(false);
   };
 
   const filteredLeads = leads.filter((l) => {

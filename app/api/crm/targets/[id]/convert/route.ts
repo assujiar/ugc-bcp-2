@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { v4 as uuidv4 } from "uuid";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 // POST /api/crm/targets/[id]/convert - Convert target to lead/account/opportunity
 export async function POST(
@@ -13,7 +14,7 @@ export async function POST(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { id } = await params;
@@ -33,7 +34,7 @@ export async function POST(
 
     if (error) {
       console.error("Error in convert target RPC:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     const result = data as {
@@ -45,12 +46,12 @@ export async function POST(
     };
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return apiErrors.badRequest(result.error || "Failed to convert target");
     }
 
-    return NextResponse.json(result);
+    return apiSuccess({ data: result });
   } catch (error) {
     console.error("Error in POST /api/crm/targets/[id]/convert:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

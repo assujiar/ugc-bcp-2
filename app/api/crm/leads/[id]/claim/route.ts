@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { v4 as uuidv4 } from "uuid";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 // POST /api/crm/leads/[id]/claim - Claim lead from handover pool (Get Lead)
 export async function POST(
@@ -13,7 +14,7 @@ export async function POST(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     // Check if user is sales team
@@ -21,7 +22,7 @@ export async function POST(
       "Director", "super admin", "sales manager", "salesperson", "sales support"
     ];
     if (!salesRoles.includes(profile.role_name)) {
-      return NextResponse.json({ error: "Only sales team can claim leads" }, { status: 403 });
+      return apiErrors.forbidden("Only sales team can claim leads");
     }
 
     const { id } = await params;
@@ -37,7 +38,7 @@ export async function POST(
 
     if (error) {
       console.error("Error in claim RPC:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     const result = data as {
@@ -50,12 +51,12 @@ export async function POST(
     };
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return apiErrors.conflict(result.error || "Failed to claim lead. It may have been claimed by another user.");
     }
 
-    return NextResponse.json(result);
+    return apiSuccess({ data: result });
   } catch (error) {
     console.error("Error in POST /api/crm/leads/[id]/claim:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

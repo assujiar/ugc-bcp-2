@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 // GET /api/crm/leads/[id] - Get single lead
 export async function GET(
@@ -12,7 +13,7 @@ export async function GET(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { id } = await params;
@@ -28,13 +29,13 @@ export async function GET(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 404 });
+      return apiErrors.notFound("Lead");
     }
 
-    return NextResponse.json({ lead });
+    return apiSuccess({ data: { lead } });
   } catch (error) {
     console.error("Error in GET /api/crm/leads/[id]:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
 
@@ -48,7 +49,7 @@ export async function PATCH(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     const { id } = await params;
@@ -72,7 +73,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     // Log audit
@@ -85,9 +86,9 @@ export async function PATCH(
       after_data: lead,
     });
 
-    return NextResponse.json({ lead });
+    return apiSuccess({ data: { lead } });
   } catch (error) {
     console.error("Error in PATCH /api/crm/leads/[id]:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/supabase/auth";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { apiSuccess, apiErrors } from "@/lib/api/error";
 
 const triageSchema = z.object({
   triage_status: z.enum(["In Review", "Qualified", "Nurture", "Disqualified"]),
@@ -23,7 +24,7 @@ export async function PATCH(
     const profile = await getProfile();
 
     if (!profile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiErrors.unauthorized();
     }
 
     // Check if user is marketing team
@@ -33,7 +34,7 @@ export async function PATCH(
       "MACX (marketing staff)", "VSDO (marketing staff)"
     ];
     if (!marketingRoles.includes(profile.role_name)) {
-      return NextResponse.json({ error: "Only marketing team can triage leads" }, { status: 403 });
+      return apiErrors.forbidden("Only marketing team can triage leads");
     }
 
     const { id } = await params;
@@ -41,10 +42,7 @@ export async function PATCH(
     const validation = triageSchema.safeParse(body);
 
     if (!validation.success) {
-      return NextResponse.json({
-        error: "Validation error",
-        details: validation.error.issues
-      }, { status: 400 });
+      return apiErrors.validation("Validation error", validation.error.issues);
     }
 
     const { triage_status, disqualified_reason, notes, auto_handover } = validation.data;
@@ -60,7 +58,7 @@ export async function PATCH(
       updateData.handover_eligible = true;
     } else if (triage_status === "Disqualified") {
       if (!disqualified_reason) {
-        return NextResponse.json({ error: "Disqualified reason is required" }, { status: 400 });
+        return apiErrors.validation("Disqualified reason is required");
       }
       updateData.disqualified_at = new Date().toISOString();
       updateData.disqualified_reason = disqualified_reason;
@@ -78,7 +76,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiErrors.internal(error.message);
     }
 
     // AUTO-HANDOVER FIX: When qualified, automatically send to Sales Pool
@@ -117,15 +115,17 @@ export async function PATCH(
       after_data: { triage_status, disqualified_reason, notes, auto_handover_triggered: !!handoverResult },
     });
 
-    return NextResponse.json({
-      lead,
-      handover: handoverResult,
-      message: handoverResult?.success
-        ? "Lead qualified and sent to Sales Pool"
-        : "Lead triaged successfully"
+    return apiSuccess({
+      data: {
+        lead,
+        handover: handoverResult,
+        message: handoverResult?.success
+          ? "Lead qualified and sent to Sales Pool"
+          : "Lead triaged successfully",
+      },
     });
   } catch (error) {
     console.error("Error in PATCH /api/crm/leads/[id]/triage:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiErrors.internal();
   }
 }
