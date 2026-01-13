@@ -108,7 +108,7 @@ export async function PATCH(
     // Validate input
     const parsed = updateTargetSchema.safeParse(body);
     if (!parsed.success) {
-      return apiErrors.badRequest(parsed.error.errors[0].message);
+      return apiErrors.badRequest(parsed.error.issues[0].message);
     }
 
     const updateData = parsed.data;
@@ -214,7 +214,7 @@ export async function POST(
     // Validate input
     const parsed = updateStatusSchema.safeParse(body);
     if (!parsed.success) {
-      return apiErrors.badRequest(parsed.error.errors[0].message);
+      return apiErrors.badRequest(parsed.error.issues[0].message);
     }
 
     const { status, notes, drop_reason } = parsed.data;

@@ -31,7 +31,7 @@ export async function POST(
     // Validate input
     const parsed = convertSchema.safeParse(body);
     if (!parsed.success) {
-      return apiErrors.badRequest(parsed.error.errors[0].message);
+      return apiErrors.badRequest(parsed.error.issues[0].message);
     }
 
     const { service_code, notes } = parsed.data;
@@ -68,7 +68,7 @@ export async function POST(
     if (!result.success) {
       // Return detailed error for gating failures
       if (result.required_status) {
-        return apiErrors.badRequest(
+        return apiErrors.validation(
           result.error || "Failed to convert target",
           {
             required_status: result.required_status,
