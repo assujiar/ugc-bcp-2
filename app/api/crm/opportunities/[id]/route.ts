@@ -91,14 +91,25 @@ export async function GET(
       .order("is_primary", { ascending: false })
       .limit(20);
 
-    // Fetch stage history (from audit logs)
+    // Fetch stage history (from crm_transition_logs with actor info)
     const { data: stageHistory } = await supabase
-      .from("audit_logs")
-      .select("*")
-      .eq("table_name", "opportunities")
-      .eq("record_id", id)
+      .from("crm_transition_logs")
+      .select(`
+        id,
+        action,
+        action_label,
+        from_state,
+        to_state,
+        changed_fields,
+        actor_name,
+        actor_role,
+        created_at,
+        correlation_id
+      `)
+      .eq("entity", "opportunities")
+      .eq("entity_id", id)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(20);
 
     return apiSuccess({
       data: {
