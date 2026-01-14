@@ -31,91 +31,139 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const allNavItems: NavItem[] = [
+/*
+ * Base navigation definition. Children are left empty and will be
+ * populated dynamically from the file system via the `/api/nav` API. The
+ * `id` values here reflect legacy menu identifiers used for RBAC
+ * filtering (allowedMenus).
+ */
+const baseNavItems: NavItem[] = [
   {
     id: "Dashboard",
     label: navLabels.dashboard,
     href: "/dashboard",
     icon: LayoutDashboard,
+    children: [],
   },
   {
-    id: "KPI",  // Keep legacy ID for RBAC filtering
+    id: "KPI",
     label: navLabels.performance,
     href: "/kpi",
     icon: Gauge,
-    children: [
-      { label: navLabels.performanceOverview, href: "/kpi" },
-      { label: navLabels.myPerformance, href: "/kpi/my" },
-      { label: navLabels.teamPerformance, href: "/kpi/team" },
-      { label: navLabels.performanceTargets, href: "/kpi/targets" },
-      { label: navLabels.performanceUpdates, href: "/kpi/input" },
-    ],
+    children: [],
   },
   {
     id: "CRM",
     label: navLabels.crm,
     href: "/crm",
     icon: Users,
-    children: [
-      { label: navLabels.leadTriageQueue, href: "/crm/lead-inbox" },
-      { label: navLabels.myWorkQueue, href: "/crm/sales-inbox" },
-      { label: navLabels.salesPipeline, href: "/crm/pipeline" },
-      { label: navLabels.accounts, href: "/crm/accounts" },
-      { label: navLabels.prospectingTargets, href: "/crm/targets" },
-      { label: navLabels.activities, href: "/crm/activities" },
-    ],
+    children: [],
   },
   {
     id: "Ticketing",
     label: navLabels.ticketing,
     href: "/ticketing",
     icon: Ticket,
-    children: [
-      { label: navLabels.allTickets, href: "/ticketing" },
-      { label: navLabels.createTicket, href: "/ticketing/create" },
-    ],
+    children: [],
   },
   {
-    id: "DSO",  // Keep legacy ID for RBAC filtering
+    id: "DSO",
     label: navLabels.arDso,
     href: "/dso",
     icon: Clock,
-    children: [
-      { label: navLabels.dsoOverview, href: "/dso" },
-      { label: navLabels.invoices, href: "/dso/invoices" },
-      { label: navLabels.payments, href: "/dso/payments" },
-    ],
+    children: [],
   },
 ];
 
 export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
-
-  // Filter nav items based on allowed menus (uses id for RBAC compatibility)
-  const navItems = allNavItems.filter((item) => allowedMenus.includes(item.id));
-
-  // Auto-expand active parent
-  React.useEffect(() => {
-    navItems.forEach((item) => {
-      if (item.children) {
-        const isChildActive = item.children.some((child) => pathname.startsWith(child.href));
-        if (isChildActive && !expandedItems.includes(item.id)) {
-          setExpandedItems((prev) => [...prev, item.id]);
-        }
+  const [repoNav, setRepoNav] = React.useState<
+    | {
+        ok: boolean;
+        modules: Record<string, { children: { href: string; label: string }[] }>;
       }
+    | null
+  >(null);
+
+  // Fetch menu data from the API when the component mounts. We disable
+  // caching so that newly added routes show up without requiring a
+  // full reload.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/nav", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json?.ok) {
+          setRepoNav(json);
+        }
+      } catch {
+        // silently ignore errors; the sidebar will fall back to baseNavItems
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Merge the base nav with children from the API. Use useMemo to avoid
+  // recalculating on every render.
+  const navItems: NavItem[] = React.useMemo(() => {
+    const filtered = baseNavItems.filter((item) => allowedMenus.includes(item.id));
+    if (!repoNav?.ok) {
+      return filtered;
+    }
+    const result: NavItem[] = [];
+    filtered.forEach((item) => {
+      const key =
+        item.id === "Dashboard"
+          ? "dashboard"
+          : item.id === "KPI"
+          ? "kpi"
+          : item.id === "CRM"
+          ? "crm"
+          : item.id === "Ticketing"
+          ? "ticketing"
+          : item.id === "DSO"
+          ? "dso"
+          : null;
+      if (!key) {
+        result.push(item);
+        return;
+      }
+      const children = repoNav.modules[key]?.children ?? [];
+      result.push({ ...item, children });
     });
-  }, [pathname, navItems, expandedItems]);
+    return result;
+  }, [allowedMenus, repoNav]);
+
+  // Function to determine if a link or its descendants are active.
+  const isActive = React.useCallback(
+    (href: string) => {
+      if (href === "/dashboard") return pathname === "/dashboard";
+      return pathname.startsWith(href);
+    },
+    [pathname],
+  );
+
+  // Automatically expand menu sections that contain the current route.
+  React.useEffect(() => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      navItems.forEach((item) => {
+        if (!item.children || item.children.length === 0) return;
+        const activeChild = item.children.some((child) => pathname.startsWith(child.href));
+        if (activeChild) next.add(item.id);
+      });
+      return Array.from(next);
+    });
+  }, [pathname, navItems]);
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
-      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id],
     );
-  };
-
-  const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
   };
 
   return (
@@ -127,20 +175,24 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
           onClick={onClose}
         />
       )}
-
       {/* Sidebar */}
       <aside
         className={cn(
           "sidebar fixed left-0 top-0 z-50 h-screen w-[280px] transition-transform duration-300",
           "lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* Brand */}
         <div className="sidebar-brand">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
             <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+              />
             </svg>
           </div>
           <div className="flex-1">
@@ -155,21 +207,20 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
             <X className="h-5 w-5" />
           </button>
         </div>
-
         {/* Navigation */}
         <nav className="sidebar-nav scrollbar-thin">
           <div className="nav-group-title">Main Menu</div>
           <ul className="space-y-1">
             {navItems.map((item) => (
               <li key={item.id}>
-                {item.children ? (
-                  // Expandable item
+                {item.children && item.children.length > 0 ? (
                   <div>
                     <button
+                      type="button"
                       onClick={() => toggleExpand(item.id)}
                       className={cn(
                         "w-full",
-                        isActive(item.href) ? "nav-item-active" : "nav-item"
+                        isActive(item.href) ? "nav-item-active" : "nav-item",
                       )}
                     >
                       <item.icon className="h-5 w-5" />
@@ -189,9 +240,9 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
                               onClick={onClose}
                               className={cn(
                                 "block rounded-lg px-3 py-2 text-sm transition-colors",
-                                pathname === child.href
+                                isActive(child.href)
                                   ? "text-primary font-medium"
-                                  : "text-muted-foreground hover:text-foreground"
+                                  : "text-muted-foreground hover:text-foreground",
                               )}
                             >
                               {child.label}
@@ -202,7 +253,6 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
                     )}
                   </div>
                 ) : (
-                  // Simple link
                   <Link
                     href={item.href}
                     onClick={onClose}
@@ -216,14 +266,11 @@ export function Sidebar({ allowedMenus, isOpen, onClose }: SidebarProps) {
             ))}
           </ul>
         </nav>
-
         {/* Footer */}
         <div className="sidebar-footer">
           <div className="rounded-lg bg-primary/5 p-3 dark:bg-primary/10">
             <p className="text-xs font-medium text-primary">Need Help?</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Contact support for assistance
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Contact support for assistance</p>
           </div>
         </div>
       </aside>

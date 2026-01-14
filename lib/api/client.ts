@@ -624,7 +624,8 @@ export async function fetchProspects(params: {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }) {
-  return apiClient<PaginatedResponse<Prospect>>("/api/prospects", { params });
+  // Use CRM targets endpoint (replacing legacy prospects API)
+  return apiClient<PaginatedResponse<Prospect>>("/api/crm/targets", { params });
 }
 
 export async function updateProspectStage(prospect_id: string, current_stage: string) {

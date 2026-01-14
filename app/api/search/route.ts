@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 
 interface SearchResult {
-  type: "lead" | "customer" | "ticket" | "invoice";
+  type: "lead" | "account" | "ticket" | "invoice";
   id: string;
   title: string;
   subtitle?: string;
@@ -52,21 +52,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Search customers
-    const { data: customers } = await supabase
-      .from("customers")
-      .select("customer_id, company_name, pic_name, pic_email")
-      .or(`customer_id.ilike.${searchPattern},company_name.ilike.${searchPattern},pic_name.ilike.${searchPattern}`)
+    // Search accounts (formerly customers)
+    const { data: accounts } = await supabase
+      .from("accounts")
+      .select("account_id, company_name, pic_name, pic_email")
+      .or(`account_id.ilike.${searchPattern},company_name.ilike.${searchPattern},pic_name.ilike.${searchPattern}`)
       .limit(5);
 
-    if (customers) {
-      customers.forEach((customer) => {
+    if (accounts) {
+      accounts.forEach((account) => {
         results.push({
-          type: "customer",
-          id: customer.customer_id,
-          title: customer.company_name,
-          subtitle: `${customer.customer_id} • ${customer.pic_name}`,
-          href: `/crm/customers/${customer.customer_id}`,
+          type: "account",
+          id: account.account_id,
+          title: account.company_name,
+          subtitle: `${account.account_id} • ${account.pic_name}`,
+          href: `/crm/accounts/${account.account_id}`,
         });
       });
     }

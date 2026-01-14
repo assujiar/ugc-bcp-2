@@ -552,19 +552,19 @@ export default function LeadDetailPage() {
             <div className="space-y-2">
               {lead.customer_id && (
                 <Link
-                  href={`/crm/customers/${lead.customer_id}`}
+                  href={`/crm/accounts/${lead.customer_id}`}
                   className="block p-3 rounded-[10px] bg-muted hover:bg-muted/80 transition-colors"
                 >
-                  <p className="text-sm font-medium text-foreground">Customer</p>
+                  <p className="text-sm font-medium text-foreground">Account</p>
                   <p className="text-xs text-muted-foreground">{lead.customer_id}</p>
                 </Link>
               )}
               {lead.prospect_id && (
                 <Link
-                  href={`/crm/prospects/${lead.prospect_id}`}
+                  href={`/crm/targets/${lead.prospect_id}`}
                   className="block p-3 rounded-[10px] bg-muted hover:bg-muted/80 transition-colors"
                 >
-                  <p className="text-sm font-medium text-foreground">Prospect</p>
+                  <p className="text-sm font-medium text-foreground">Target</p>
                   <p className="text-xs text-muted-foreground">{lead.prospect_id}</p>
                 </Link>
               )}

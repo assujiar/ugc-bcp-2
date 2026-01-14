@@ -170,7 +170,7 @@ export default function LogActivityPage() {
     } else {
       setSuccess(true);
       setTimeout(() => {
-        router.push("/crm/prospects");
+        router.push("/crm/targets");
       }, 1500);
     }
   };
@@ -184,8 +184,8 @@ export default function LogActivityPage() {
         <AlertCircle className="h-12 w-12 text-warning mb-4" />
         <p className="text-lg font-medium text-foreground mb-2">Access Denied</p>
         <p className="text-sm text-muted-foreground">Only sales users can log activities</p>
-        <Link href="/crm/prospects" className="btn-primary mt-4">
-          Back to Prospects
+        <Link href="/crm/targets" className="btn-primary mt-4">
+          Back to Targets
         </Link>
       </div>
     );
@@ -196,7 +196,7 @@ export default function LogActivityPage() {
       <div className="flex flex-col items-center justify-center py-20">
         <CheckCircle className="h-16 w-16 text-success mb-4" />
         <h2 className="text-xl font-bold text-foreground mb-2">Activity Logged Successfully!</h2>
-        <p className="text-muted-foreground">Redirecting to prospects...</p>
+        <p className="text-muted-foreground">Redirecting to targets...</p>
       </div>
     );
   }
@@ -206,14 +206,14 @@ export default function LogActivityPage() {
       {/* Page Header */}
       <div className="mb-6">
         <Link
-          href="/crm/prospects"
+          href="/crm/targets"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Prospects
+          Back to Targets
         </Link>
         <h1 className="text-2xl font-bold text-foreground">Log Sales Activity</h1>
-        <p className="text-muted-foreground">Record your sales activities with prospects</p>
+        <p className="text-muted-foreground">Record your sales activities with targets</p>
       </div>
 
       {/* Error Alert */}
@@ -425,7 +425,7 @@ export default function LogActivityPage() {
 
         {/* Submit */}
         <div className="flex items-center justify-end gap-3">
-          <Link href="/crm/prospects" className="btn-outline">
+          <Link href="/crm/targets" className="btn-outline">
             Cancel
           </Link>
           <button type="submit" className="btn-primary" disabled={loading}>

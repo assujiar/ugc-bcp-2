@@ -31,7 +31,8 @@ export const navLabels = {
   myWorkQueue: "My Work Queue",  // formerly "Sales Inbox"
   salesPipeline: "Sales Pipeline",  // formerly "Pipeline"
   accounts: "Accounts",
-  prospectingTargets: "Prospecting Targets",  // formerly "Targets"
+  // Renamed to Targets in the CRM target-state
+  prospectingTargets: "Targets",  // formerly "Prospecting Targets"
   activities: "Activities",
   actionableItems: "Actionable Items",  // "No Record Left Behind" debug view
 
@@ -77,9 +78,10 @@ export const pageLabels = {
     breadcrumb: "Account Details",
   },
   prospectingTargets: {
-    title: "Prospecting Targets",
-    subtitle: "Pre-lead workspace. Convert only when qualified.",
-    breadcrumb: "Prospecting Targets",
+    // Renamed to Targets in the CRM target-state
+    title: "Targets",
+    subtitle: "Pre-lead workspace. Convert when qualified.",
+    breadcrumb: "Targets",
   },
   activities: {
     title: "Activities",

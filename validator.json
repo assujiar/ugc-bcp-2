@@ -167,7 +167,15 @@
     "auth": ["/login"],
     "dashboard": ["/dashboard"],
     "kpi": ["/kpi", "/kpi/my", "/kpi/team", "/kpi/targets", "/kpi/input", "/kpi/imports"],
-    "crm": ["/crm/leads", "/crm/customers", "/crm/prospects", "/crm/imports"],
+    "crm": [
+      "/crm/lead-inbox",
+      "/crm/sales-inbox",
+      "/crm/pipeline",
+      "/crm/accounts",
+      "/crm/targets",
+      "/crm/imports",
+      "/crm/activities"
+    ],
     "ticketing": ["/ticketing", "/ticketing/create", "/ticketing/[ticket_id]"],
     "dso": ["/dso", "/dso/invoices", "/dso/payments", "/dso/my-customers"]
   },

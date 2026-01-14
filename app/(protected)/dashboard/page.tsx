@@ -609,7 +609,7 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground">Overdue Invoices</p>
             </div>
           </Link>
-          <Link href="/crm/customers" className="card flex items-center gap-4 hover:border-success/50 transition-colors">
+          <Link href="/crm/accounts" className="card flex items-center gap-4 hover:border-success/50 transition-colors">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
               <Users className="h-6 w-6 text-success" />
             </div>
@@ -702,7 +702,7 @@ export default function DashboardPage() {
 
       {/* KPI Summary Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/crm/prospects" className="card hover:border-primary/50 transition-colors">
+        <Link href="/crm/targets" className="card hover:border-primary/50 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Win Rate</p>

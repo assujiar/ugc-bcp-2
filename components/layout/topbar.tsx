@@ -42,7 +42,7 @@ interface TopbarProps {
 }
 
 interface SearchResult {
-  type: "lead" | "customer" | "ticket" | "invoice";
+  type: "lead" | "account" | "ticket" | "invoice";
   id: string;
   title: string;
   subtitle?: string;
@@ -208,7 +208,7 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
     switch (type) {
       case "lead":
         return <Users className="h-4 w-4 text-primary" />;
-      case "customer":
+      case "account":
         return <Building2 className="h-4 w-4 text-success" />;
       case "ticket":
         return <Ticket className="h-4 w-4 text-info" />;
@@ -269,7 +269,7 @@ export function Topbar({ user, onMenuClick }: TopbarProps) {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search leads, customers, tickets, invoices..."
+                    placeholder="Search leads, accounts, tickets, invoices..."
                     className="flex-1 h-14 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
                   />
                   {isSearching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
